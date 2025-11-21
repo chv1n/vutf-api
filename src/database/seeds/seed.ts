@@ -1,5 +1,5 @@
 // seed.ts
-import { AppDataSource } from './data-source';
+import { AppDataSource } from '../data-source';
 import { UserAccount } from '../../modules/users/entities/user-account.entity';
 import { Student } from '../../modules/users/entities/student.entity';
 import { Instructor } from '../../modules/users/entities/instructor.entity';
