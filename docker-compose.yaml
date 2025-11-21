@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5434:5432" 
+      - "${DB_PORT}:5432" 
     volumes:
       - vutf_db_data:/var/lib/postgresql/data
 
