@@ -25,4 +25,6 @@ export class AuthService {
   }
 
   test(){}
+  
+  test2(){}
 }
