@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import { join } from 'path';
 import appConfig from './config/app.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -28,9 +31,42 @@ import { AppModules } from './modules';
       }),
     }),
     ...AppModules,
+    MailerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+
+        console.log("SMTP Config:", {
+          host: process.env.MAIL_HOST,
+          port: process.env.MAIL_PORT,
+          user: process.env.MAIL_USER,
+          pass: process.env.MAIL_PASSWORD,
+        });
+
+        return {
+          transport: {
+            host: process.env.MAIL_HOST,
+            port: Number(process.env.MAIL_PORT),
+            auth: {
+              user: process.env.MAIL_USER || 'cendozoden@gmail.com',
+              pass: process.env.MAIL_PASSWORD || 'lmsgzhjiaeijfmhs',
+            },
+          },
+          defaults: {
+            from: '"No Reply" <noreply@example.com>',
+          },
+          template: {
+            dir: join(__dirname, 'templates'),
+            adapter: new HandlebarsAdapter(),
+            options: {
+              strict: true,
+            },
+          },
+        };
+      },
+    }),
 
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }
