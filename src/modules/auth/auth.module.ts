@@ -4,13 +4,15 @@ import { AuthController } from './auth.controller';
 import { UsersModule } from '../users/users.module';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
+import { SharedModule } from '../../shared/shared.module';
 
 @Module({
   imports: [
     UsersModule,
     JwtModule.register({}),
+    SharedModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
 })
-export class AuthModule {}
+export class AuthModule { }
