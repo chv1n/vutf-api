@@ -19,14 +19,14 @@ export class UserAccount {
   @Column({ unique: true })
   email: string;
 
-  @Column()
-  password_hash: string;
+  @Column({ name: 'password_hash' })
+  passwordHash: string;
 
-  @Column({ default: true })
-  is_active: boolean;
+  @Column({ name: 'is_active', default: true })
+  isActive: boolean;
 
-  @CreateDateColumn()
-  create_at: Date;
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
 
   @OneToOne(() => Student, (student) => student.user)
   student: Student;

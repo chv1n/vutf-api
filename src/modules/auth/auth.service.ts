@@ -1,30 +1,76 @@
-import { Injectable } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../users/users.service';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+import Redis from 'ioredis';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
+  private readonly redis: Redis;
+
+  constructor(
+    private usersService: UsersService,
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {
+    const redisHost = this.configService.get<string>('redis.host');
+    const redisPort = this.configService.get<number>('redis.port');
+    const redisPassword = this.configService.get<string>('redis.password');
+
+    this.redis = new Redis({
+      host: redisHost,
+      port: redisPort,
+      password: redisPassword,
+    });
   }
 
-  findAll() {
-    return `This action returns all auth`;
-  }
+  async login(loginDto: LoginDto) {
+    const { email, password } = loginDto;
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
+    // 1. เรียกใช้ UsersService เพื่อหาข้อมูล
+    const user = await this.usersService.findByEmail(email);
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
+    // 2. Validate Password
+    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+       // โยน Error เดี๋ยว Filter จะจัดการ format ให้ตามกฎข้อ 3
+      throw new BadRequestException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+    }
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
-  }
+    if (!user.isActive) {
+      throw new UnauthorizedException('บัญชีผู้ใช้นี้ถูกระงับ');
+    }
 
-  test(){}
-  
-  test2(){}
+    // 3. Prepare Payload
+    const payload = { userId: user.user_id, role: user.role };
+
+    // 4. Generate Tokens
+    const accessToken = this.jwtService.sign(payload, { 
+      expiresIn: '15m', 
+      secret: process.env.JWT_ACCESS_SECRET 
+    });
+    
+    const refreshToken = this.jwtService.sign(payload, { 
+      expiresIn: '7d', 
+      secret: process.env.JWT_REFRESH_SECRET 
+    });
+
+    // 5. Store Refresh Token in Redis
+    await this.redis.set(
+      `refresh_token:${user.user_id}`,
+      refreshToken,
+      'EX',
+      7 * 24 * 60 * 60, // 7 days
+    );
+
+    // 6. Return Data (เฉพาะ data ส่วน success: true จะถูกห่อโดย Interceptor)
+    return {
+      userId: user.user_id,
+      email: user.email,
+      role: user.role,
+      accessToken,
+      refreshToken,
+    };
+  }
 }
