@@ -10,6 +10,7 @@ import { OtpService } from '../../shared/services/otp.service';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { RegisterDto } from './dto/register.dto';
 
 @Injectable()
 export class AuthService {
@@ -34,7 +35,10 @@ export class AuthService {
       throw new UnauthorizedException('บัญชีผู้ใช้นี้ถูกระงับ');
     }
 
-    const payload = { userId: user.user_id, role: user.role };
+    // 3. Prepare Payload
+    const payload = { userId: user.user_uuid, role: user.role };
+
+    // 4. Generate Tokens
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: '15m',
       secret: process.env.JWT_ACCESS_SECRET
@@ -46,13 +50,12 @@ export class AuthService {
     });
 
     await this.redisService.set(
-      `refresh_token:${user.user_id}`,
+      `refresh_token:${user.user_uuid}`,
       refreshToken,
       7 * 24 * 60 * 60, // 7 days
     );
-    
     return {
-      userId: user.user_id,
+      userId: user.user_uuid,
       email: user.email,
       role: user.role,
       accessToken,
@@ -141,5 +144,36 @@ export class AuthService {
     await this.redisService.del(`reg-otp:${email}`);
 
     return { registrationToken };
+  }
+
+  async register(dto: RegisterDto, registrationToken: string) {
+    let email: string;
+    try {
+      const payload = this.jwtService.verify(registrationToken, {
+        secret: process.env.JWT_ACCESS_SECRET,
+      });
+      if (!payload.isVerified) {
+        throw new BadRequestException('Invalid registration token.');
+      }
+      email = payload.email;
+    } catch (error) {
+      throw new BadRequestException('Invalid or expired registration token.');
+    }
+
+    const existingUser = await this.usersService.findByEmail(email);
+    if (existingUser) {
+      throw new ConflictException('This email is already registered.');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+
+    const user = await this.usersService.studentRegister(email, hashedPassword, {
+      prefixName: dto.prefixName,
+      firstName: dto.firstName,
+      lastName: dto.lastName,
+      phone: dto.phone,
+    });
+
+    return user;
   }
 }

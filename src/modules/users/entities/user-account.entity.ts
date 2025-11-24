@@ -11,7 +11,7 @@ import { Instructor } from './instructor.entity';
 @Entity({ name: 'user_account' })
 export class UserAccount {
   @PrimaryGeneratedColumn('uuid')
-  user_id: string;
+  user_uuid: string;
 
   @Column({ length: 50 })
   role: string;
