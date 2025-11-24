@@ -1,26 +1,82 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Res, Req, BadRequestException } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Res, Req, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
+  private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+    res.cookie('accessToken', accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 15 * 60 * 1000, // 15 นาที (ตาม Access Token)
+    });
+
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/api/v1/auth/refresh',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 วัน
+    });
+  }
+
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  async login(
+    @Body() loginDto: LoginDto,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    // 1. เรียก Service ได้ผลลัพธ์ที่มี tokens
+    const result = await this.authService.login(loginDto);
+
+    // 2. แยก token ออกมาใส่ Cookie
+    this.setAuthCookies(res, result.accessToken, result.refreshToken);
+
+    // 3. ส่งกลับไปแค่ข้อมูล User (ลบ sensitive token ออกจาก response body)
+    return {
+      userId: result.userId,
+      email: result.email,
+      role: result.role,
+      message: 'Login successful'
+    };
   }
 
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refresh(@Body() refreshTokenDto: RefreshTokenDto) {
-    return this.authService.refresh(refreshTokenDto);
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    // 1. ดึง Refresh Token จาก Cookie
+    const refreshToken = req.cookies['refreshToken'];
+
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token not found in cookies');
+    }
+
+    // 2. ส่งให้ Service ตรวจสอบ (ปรับรูปให้ตรงกับ DTO ที่ Service ต้องการ)
+    const result = await this.authService.refresh({ refreshToken });
+
+    // 3. อัปเดต Cookie ใหม่ (Rotation)
+    this.setAuthCookies(res, result.accessToken, result.refreshToken);
+
+    return { message: 'Token refreshed' };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(@Res({ passthrough: true }) res: Response) {
+    // ล้าง Cookie
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken', { path: '/api/v1/auth/refresh' });
+    return { message: 'Logout successful' };
   }
 
   @Post('request-registration-otp')
