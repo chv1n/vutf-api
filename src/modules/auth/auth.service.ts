@@ -9,6 +9,7 @@ import { MailService } from '../../shared/services/mail.service';
 import { OtpService } from '../../shared/services/otp.service';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Injectable()
 export class AuthService {
@@ -23,13 +24,9 @@ export class AuthService {
 
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
-
-    // 1. เรียกใช้ UsersService เพื่อหาข้อมูล
     const user = await this.usersService.findByEmail(email);
 
-    // 2. Validate Password
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-      // โยน Error เดี๋ยว Filter จะจัดการ format ให้ตามกฎข้อ 3
       throw new BadRequestException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
     }
 
@@ -37,10 +34,7 @@ export class AuthService {
       throw new UnauthorizedException('บัญชีผู้ใช้นี้ถูกระงับ');
     }
 
-    // 3. Prepare Payload
     const payload = { userId: user.user_id, role: user.role };
-
-    // 4. Generate Tokens
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: '15m',
       secret: process.env.JWT_ACCESS_SECRET
@@ -51,14 +45,12 @@ export class AuthService {
       secret: process.env.JWT_REFRESH_SECRET
     });
 
-    // 5. Store Refresh Token in Redis
     await this.redisService.set(
       `refresh_token:${user.user_id}`,
       refreshToken,
       7 * 24 * 60 * 60, // 7 days
     );
-
-    // 6. Return Data (เฉพาะ data ส่วน success: true จะถูกห่อโดย Interceptor)
+    
     return {
       userId: user.user_id,
       email: user.email,
@@ -66,6 +58,54 @@ export class AuthService {
       accessToken,
       refreshToken,
     };
+  }
+
+  async refresh(refreshTokenDto: RefreshTokenDto) {
+    const { refreshToken } = refreshTokenDto;
+
+    try {
+      // 1. ตรวจสอบ Signature
+      const payload = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      // 2. เช็คใน Redis (แก้ไขจุดที่ 1: ใช้ this.redisService)
+      const userId = payload.userId;
+      const storedToken = await this.redisService.get(`refresh_token:${userId}`);
+
+      if (!storedToken || storedToken !== refreshToken) {
+        throw new UnauthorizedException('Refresh token ไม่ถูกต้อง หรือหมดอายุแล้ว');
+      }
+
+      // 3. สร้าง Token คู่ใหม่
+      const user = { user_id: userId, role: payload.role };
+      const newPayload = { userId: user.user_id, role: user.role };
+
+      const newAccessToken = this.jwtService.sign(newPayload, {
+        expiresIn: '15m',
+        secret: process.env.JWT_ACCESS_SECRET
+      });
+
+      const newRefreshToken = this.jwtService.sign(newPayload, {
+        expiresIn: '7d',
+        secret: process.env.JWT_REFRESH_SECRET
+      });
+
+      // 4. อัปเดต Token ลง Redis (แก้ไขจุดที่ 2: ใช้ this.redisService และลบ 'EX' ออก)
+      await this.redisService.set(
+        `refresh_token:${userId}`,
+        newRefreshToken,
+        7 * 24 * 60 * 60,
+      );
+
+      return {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      };
+
+    } catch (e) {
+      throw new UnauthorizedException('Refresh token หมดอายุ กรุณา Login ใหม่');
+    }
   }
 
   async requestRegistrationOtp(dto: RequestOtpDto): Promise<void> {
