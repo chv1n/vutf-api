@@ -36,7 +36,7 @@ async function run() {
         first_name: `Student${i}`,
         last_name: `Lastname${i}`,
         phone: `09000000${i}`,
-        user_id: existedUser.user_id,
+        user_uuid: existedUser.user_uuid,
       });
     }
   }
@@ -64,7 +64,7 @@ async function run() {
         instructor_code: `TEACH00${i}`,
         first_name: `Instructor${i}`,
         last_name: `Lastname${i}`,
-        user_id: existedUser.user_id,
+        user_uuid: existedUser.user_uuid,
       });
     }
   }
@@ -82,7 +82,7 @@ async function run() {
       instructor_code: `TEACH00${i}`,
       first_name: `Instructor${i}`,
       last_name: `Lastname${i}`,
-      user_id: null, // ไม่มี account
+      user_uuid: null, // ไม่มี account
     });
   }
 
