@@ -23,7 +23,7 @@ export class Instructor {
     last_name: string;
 
     @Column('uuid', { nullable: true })
-    user_id: string | null;
+    user_uuid: string | null;
 
 
     @CreateDateColumn()
@@ -32,7 +32,7 @@ export class Instructor {
     @OneToOne(() => UserAccount, (user) => user.instructor, {
         onDelete: 'SET NULL',
     })
-    @JoinColumn({ name: 'user_id' })
+    @JoinColumn({ name: 'user_uuid' })
     user: UserAccount;
 
 }

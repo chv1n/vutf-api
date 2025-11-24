@@ -14,8 +14,11 @@ export class Student {
   student_uuid: string;
 
   @Column({ unique: true })
-  student_code: string; 
-  
+  student_code: string;
+
+  @Column()
+  prefix_name: string;
+
 
   @Column()
   first_name: string;
@@ -27,7 +30,7 @@ export class Student {
   phone: string;
 
   @Column('uuid')
-  user_id: string;
+  user_uuid: string;
 
   @CreateDateColumn()
   create_at: Date;
@@ -35,6 +38,6 @@ export class Student {
   @OneToOne(() => UserAccount, (user) => user.student, {
     onDelete: 'CASCADE',
   })
-  @JoinColumn({ name: 'user_id' })
+  @JoinColumn({ name: 'user_uuid' })
   user: UserAccount;
 }
