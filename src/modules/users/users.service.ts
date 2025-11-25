@@ -70,4 +70,11 @@ export class UsersService {
       await queryRunner.release();
     }
   }
+
+  async updatePassword(email: string, passwordHash: string): Promise<void> {
+    await this.usersRepository.update(
+      { email },
+      { passwordHash }
+    );
+  }
 }

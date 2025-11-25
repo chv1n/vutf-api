@@ -5,6 +5,8 @@ import { LoginDto } from './dto/login.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -117,5 +119,52 @@ export class AuthController {
 
     const user = await this.authService.register(registerDto, registrationToken);
     return user;
+  }
+
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.requestForgotPasswordOtp(dto);
+  }
+
+  @Post('verify-forgot-otp')
+  @HttpCode(HttpStatus.OK)
+  async verifyForgotOtp(
+    @Body() dto: VerifyOtpDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const result = await this.authService.verifyForgotPasswordOtp(dto);
+
+    res.cookie('resetToken', result.resetToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 10 * 60 * 1000,
+    });
+
+    return { message: 'OTP verified, reset token set in cookie.' };
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+    @Req() req: Request,     // Inject Request เพื่ออ่าน Cookie
+    @Res({ passthrough: true }) res: Response // Inject Response เพื่อลบ Cookie
+  ) {
+
+    const token = req.cookies['resetToken'];
+
+    if (!token) {
+      throw new BadRequestException('Reset token is missing in cookies.');
+    }
+
+    const result = await this.authService.resetPassword(dto, token);
+
+    // ลบ Cookie ทิ้งเมื่อเปลี่ยนรหัสเสร็จ
+    res.clearCookie('resetToken');
+
+    return result;
   }
 }

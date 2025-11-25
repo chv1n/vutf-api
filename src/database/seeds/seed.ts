@@ -5,6 +5,12 @@ import { Student } from '../../modules/users/entities/student.entity';
 import { Instructor } from '../../modules/users/entities/instructor.entity';
 import * as bcrypt from 'bcrypt';
 
+// ตัวเลือกคำนำหน้าชื่อ (เพิ่ม/ลด ได้ตามต้องการ)
+const prefixes = ['นาย', 'นางสาว'];
+
+// ฟังก์ชันสุ่มเลือกคำนำหน้า
+const getRandomPrefix = () => prefixes[Math.floor(Math.random() * prefixes.length)];
+
 async function run() {
   const ds = await AppDataSource.initialize();
 
@@ -13,7 +19,7 @@ async function run() {
   const instructorRepo = ds.getRepository(Instructor);
 
   // ------------------------------------------
-  // STUDENTS 5 คน (เช็กซ้ำด้วย email)
+  // STUDENTS 5 คน
   // ------------------------------------------
   for (let i = 1; i <= 5; i++) {
     const email = `student${i}@example.com`;
@@ -23,7 +29,7 @@ async function run() {
       existedUser = await userRepo.save({
         role: 'student',
         email: email,
-        password_hash: await bcrypt.hash('password123', 10),
+        passwordHash: await bcrypt.hash('password123', 10),
       });
     }
 
@@ -33,6 +39,7 @@ async function run() {
     if (!existedStudent) {
       await studentRepo.save({
         student_code: `66STU00${i}`,
+        prefix_name: getRandomPrefix(),
         first_name: `Student${i}`,
         last_name: `Lastname${i}`,
         phone: `09000000${i}`,
@@ -52,7 +59,7 @@ async function run() {
       existedUser = await userRepo.save({
         role: 'instructor',
         email: email,
-        password_hash: await bcrypt.hash('password123', 10),
+        passwordHash: await bcrypt.hash('password123', 10),
       });
     }
 
@@ -82,7 +89,7 @@ async function run() {
       instructor_code: `TEACH00${i}`,
       first_name: `Instructor${i}`,
       last_name: `Lastname${i}`,
-      user_uuid: null, // ไม่มี account
+      user_uuid: null, 
     });
   }
 

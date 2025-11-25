@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, BadRequestException, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
@@ -11,6 +11,8 @@ import { RequestOtpDto } from './dto/request-otp.dto';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -175,5 +177,60 @@ export class AuthService {
     });
 
     return user;
+  }
+
+
+  async requestForgotPasswordOtp(dto: ForgotPasswordDto): Promise<void> {
+    const { email } = dto;
+    const user = await this.usersService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException('ไม่พบอีเมลนี้ในระบบ');
+    }
+
+    const otp = this.otpService.generate6Digits();
+    const ttl = 300; // 5 นาที
+
+    await this.redisService.set(`forgot-otp:${email}`, otp, ttl);
+    await this.mailService.sendForgotPassword(email, otp);
+  }
+
+  async verifyForgotPasswordOtp(dto: VerifyOtpDto) {
+    const { email, otp } = dto;
+    const storedOtp = await this.redisService.get(`forgot-otp:${email}`);
+
+    if (!storedOtp || storedOtp !== otp) {
+      throw new BadRequestException('OTP ไม่ถูกต้องหรือหมดอายุ');
+    }
+
+    // สร้าง Token พิเศษสำหรับ Reset Password (อายุ 10 นาที)
+    const resetToken = this.jwtService.sign(
+      { email, isReset: true },
+      { expiresIn: '10m', secret: process.env.JWT_ACCESS_SECRET }
+    );
+
+    await this.redisService.del(`forgot-otp:${email}`);
+
+    return { resetToken };
+  }
+
+  async resetPassword(dto: ResetPasswordDto, resetToken: string) {
+    let email: string;
+    try {
+      const payload = this.jwtService.verify(resetToken, {
+        secret: process.env.JWT_ACCESS_SECRET,
+      });
+      if (!payload.isReset) {
+        throw new BadRequestException('Invalid reset token.');
+      }
+      email = payload.email;
+    } catch (error) {
+      throw new BadRequestException('Invalid or expired reset token.');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+
+    await this.usersService.updatePassword(email, hashedPassword);
+
+    return { message: 'เปลี่ยนรหัสผ่านสำเร็จแล้ว' };
   }
 }
