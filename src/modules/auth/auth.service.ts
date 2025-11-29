@@ -25,6 +25,24 @@ export class AuthService {
     private otpService: OtpService,
   ) { }
 
+  async getMe(userId: string) {
+    // ดึงข้อมูล User Account
+    const user = await this.usersService.findById(userId);
+    
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      id: user.user_uuid,
+      email: user.email,
+      role: user.role,
+      firstName: user.student?.first_name || user.instructor?.first_name || '',
+      lastName: user.student?.last_name || user.instructor?.last_name || '',
+      code: user.student?.student_code || user.instructor?.instructor_code || '',
+    };
+  }
+
   async login(loginDto: LoginDto) {
     const { email, password } = loginDto;
     const user = await this.usersService.findByEmail(email);

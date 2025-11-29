@@ -20,6 +20,13 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { email } });
   }
 
+  async findById(userId: string): Promise<UserAccount | null> {
+    return this.usersRepository.findOne({
+      where: { user_uuid: userId },
+      relations: ['student', 'instructor'],
+    });
+  }
+
   async studentRegister(
     email: string,
     passwordHash: string,
