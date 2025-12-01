@@ -12,6 +12,12 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class InspectionRoundController {
   constructor(private readonly inspectionRoundService: InspectionRoundService) { }
 
+  @Get()
+  @Roles('admin', 'student', 'instructor')
+  async findAll() {
+    return await this.inspectionRoundService.findAll();
+  }
+
   @Post()
   @Roles('admin')
   async create(@Body() createInspectionRoundDto: CreateInspectionRoundDto) {

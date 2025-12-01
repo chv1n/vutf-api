@@ -12,6 +12,14 @@ export class InspectionRoundService {
     private readonly inspectionRoundRepository: Repository<InspectionRound>,
   ) { }
 
+  async findAll(): Promise<InspectionRound[]> {
+    return await this.inspectionRoundRepository.find({
+      order: {
+        createAt: 'DESC',
+      },
+    });
+  }
+
   async create(createDto: CreateInspectionRoundDto): Promise<InspectionRound> {
     const { title, description, startDate, endDate } = createDto;
 
