@@ -1,4 +1,9 @@
-import { IsNotEmpty, IsString, IsDateString, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsDateString, IsOptional, IsEnum } from 'class-validator';
+
+export enum InspectionStatus {
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+}
 
 export class CreateInspectionRoundDto {
   @IsNotEmpty({ message: 'Title is required' })
@@ -16,4 +21,8 @@ export class CreateInspectionRoundDto {
   @IsNotEmpty({ message: 'End date is required' })
   @IsDateString()
   endDate: string;
+
+  @IsOptional()
+  @IsEnum(InspectionStatus) 
+  status?: InspectionStatus;
 }

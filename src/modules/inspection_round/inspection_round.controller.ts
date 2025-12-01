@@ -44,4 +44,10 @@ export class InspectionRoundController {
   async remove(@Param('id', ParseIntPipe) id: number) {
     return await this.inspectionRoundService.remove(id);
   }
+
+  @Patch(':id/status')
+  @Roles('admin')
+  async toggleStatus(@Param('id', ParseIntPipe) id: number) {
+    return await this.inspectionRoundService.toggleStatus(id);
+  }
 }

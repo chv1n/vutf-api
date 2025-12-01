@@ -3,7 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CreateInspectionRoundDto } from './dto/create-inspection_round.dto';
 import { UpdateInspectionRoundDto } from './dto/update-inspection_round.dto';
-import { InspectionRound } from './entities/inspection_round.entity';
+import { InspectionRound, InspectionStatus } from './entities/inspection_round.entity';
 
 @Injectable()
 export class InspectionRoundService {
@@ -18,6 +18,23 @@ export class InspectionRoundService {
         createAt: 'DESC',
       },
     });
+  }
+
+  async findAllActive(): Promise<InspectionRound[]> {
+    return await this.inspectionRoundRepository.find({
+      where: { status: InspectionStatus.OPEN },
+      order: { createAt: 'DESC' },
+    });
+  }
+
+  async toggleStatus(id: number): Promise<InspectionRound> {
+    const round = await this.findOne(id);
+    // สลับค่า: ถ้า OPEN เป็น CLOSED, ถ้า CLOSED เป็น OPEN
+    round.status = round.status === InspectionStatus.OPEN
+      ? InspectionStatus.CLOSED
+      : InspectionStatus.OPEN;
+
+    return await this.inspectionRoundRepository.save(round);
   }
 
   async create(createDto: CreateInspectionRoundDto): Promise<InspectionRound> {
