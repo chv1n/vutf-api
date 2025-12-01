@@ -8,7 +8,6 @@ import appConfig from './config/app.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppModules } from './modules';
-import { InspectionRoundModule } from './modules/inspection_round/inspection_round.module';
 
 
 
@@ -33,7 +32,6 @@ import { InspectionRoundModule } from './modules/inspection_round/inspection_rou
       }),
     }),
     ...AppModules,
-    InspectionRoundModule,
 
   ],
   controllers: [AppController],
