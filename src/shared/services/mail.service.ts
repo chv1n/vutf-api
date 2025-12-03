@@ -22,6 +22,5 @@ export class MailService {
       template: './registration-otp',
       context: { otp },
     });
-    // console.log(`[MailService] Sent Forgot Password OTP to ${email}`);
   }
 }
