@@ -1,5 +1,6 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Res, Req, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, Res, Req, BadRequestException, UnauthorizedException, UseGuards } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RequestOtpDto } from './dto/request-otp.dto';
@@ -27,6 +28,14 @@ export class AuthController {
       path: '/api/v1/auth/refresh',
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7 วัน
     });
+  }
+
+  @UseGuards(AuthGuard('jwt')) // ต้อง Login ก่อนถึงเข้าได้ (เช็คจาก Cookie)
+  @Get('me')
+  @HttpCode(HttpStatus.OK)
+  async getMe(@Req() req) {
+    const userId = req.user.userId;
+    return this.authService.getMe(userId);
   }
 
   @Post('login')

@@ -89,8 +89,28 @@ async function run() {
       instructor_code: `TEACH00${i}`,
       first_name: `Instructor${i}`,
       last_name: `Lastname${i}`,
-      user_uuid: null, 
+      user_uuid: null,
     });
+  }
+
+  // ------------------------------------------
+  // ADMINS 2 คน 
+  // ------------------------------------------
+  for (let i = 1; i <= 2; i++) {
+    const email = `admin${i}@example.com`;
+
+    // เช็คว่ามี user นี้อยู่แล้วหรือยัง เพื่อป้องกันการสร้างซ้ำ
+    let existedUser = await userRepo.findOne({ where: { email } });
+
+    if (!existedUser) {
+      await userRepo.save({
+        role: 'admin',
+        email: email,
+        passwordHash: await bcrypt.hash('password123', 10),
+        // is_active: true, // (ถ้าใน entity ตั้ง default true ไว้แล้ว ไม่ต้องใส่ก็ได้)
+      });
+      console.log(`Created Admin: ${email}`);
+    }
   }
 
   console.log('✅ Seed Completed');
