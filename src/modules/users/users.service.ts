@@ -356,7 +356,8 @@ export class UsersService {
       lastName: inst.last_name,
       hasAccount: !!inst.user,
       email: inst.user?.email || null,
-      user_uuid: inst.user?.user_uuid || null
+      user_uuid: inst.user?.user_uuid || null,
+      isActive: inst.user?.isActive
     }));
 
     return {
