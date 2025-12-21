@@ -6,6 +6,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
+  process.env.TZ = 'UTC';
   const app = await NestFactory.create(AppModule);
   app.use(cookieParser());
   app.enableCors({
