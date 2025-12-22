@@ -4,6 +4,7 @@ import { MailModule } from './mail/mail.module';
 import { InspectionRoundModule } from './inspection_round/inspection_round.module';
 import { ThesisGroupModule } from './thesis_group/thesis_group.module';
 
+import { AnnouncementsModule } from './announcements/announcements.module';
 
 export const AppModules = [
     UsersModule,
@@ -12,5 +13,6 @@ export const AppModules = [
     InspectionRoundModule,
     ThesisGroupModule,
 
+    AnnouncementsModule,
 ]
 
