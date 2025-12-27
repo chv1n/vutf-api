@@ -4,11 +4,23 @@ import { IsBoolean, IsEmail, IsOptional, IsString, Matches, MinLength } from 'cl
 export class AdminUpdateUserDto {
   @IsOptional()
   @IsString()
+  prefixName?: string;
+
+  @IsOptional()
+  @IsString()
   firstName?: string;
 
   @IsOptional()
   @IsString()
   lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  studentCode?: string;
+
+  @IsOptional()
+  @IsString()
+  instructorCode?: string;
 
   @IsOptional()
   @IsString()

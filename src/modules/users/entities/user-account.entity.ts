@@ -19,8 +19,8 @@ export class UserAccount {
   @Column({ unique: true })
   email: string;
 
-  @Column({ name: 'password_hash' })
-  passwordHash: string;
+  @Column({ name: 'password_hash', type: 'varchar', nullable: true })
+  passwordHash: string | null;
 
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
