@@ -8,11 +8,14 @@ import appConfig from './config/app.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppModules } from './modules';
+import { ScheduleModule } from '@nestjs/schedule';
 
 
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
+
     ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig],
