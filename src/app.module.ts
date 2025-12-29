@@ -33,6 +33,7 @@ import { AppModules } from './modules';
     }),
     ...AppModules,
 
+
   ],
   controllers: [AppController],
   providers: [AppService],

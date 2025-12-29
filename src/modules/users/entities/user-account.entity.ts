@@ -4,9 +4,11 @@ import {
   Column,
   CreateDateColumn,
   OneToOne,
+  OneToMany,
 } from 'typeorm';
 import { Student } from './student.entity';
 import { Instructor } from './instructor.entity';
+import { ThesisGroup } from 'src/modules/thesis-group/entities/thesis-group.entity';
 
 @Entity({ name: 'user_account' })
 export class UserAccount {
@@ -33,4 +35,7 @@ export class UserAccount {
 
   @OneToOne(() => Instructor, (instructor) => instructor.user)
   instructor: Instructor;
+
+  @OneToMany(() => ThesisGroup, (thesisGroup) => thesisGroup.created_by)
+  thesisGroups: ThesisGroup[];
 }

@@ -1,5 +1,10 @@
 import * as bcrypt from 'bcrypt';
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Brackets } from 'typeorm';
 import { UserAccount } from './entities/user-account.entity';
@@ -12,7 +17,6 @@ import { CreateInstructorByAdminDto } from './dto/create-instructor.dto';
 
 @Injectable()
 export class UsersService {
-
   constructor(
     @InjectRepository(UserAccount)
     private usersRepository: Repository<UserAccount>,
@@ -20,7 +24,7 @@ export class UsersService {
     @InjectRepository(Instructor)
     private instructorRepository: Repository<Instructor>,
     private dataSource: DataSource,
-  ) { }
+  ) {}
 
   // ฟังก์ชันนี้ AuthModule จะเรียกใช้
   async findByEmail(email: string): Promise<UserAccount | null> {
@@ -86,10 +90,7 @@ export class UsersService {
   }
 
   async updatePassword(email: string, passwordHash: string): Promise<void> {
-    await this.usersRepository.update(
-      { email },
-      { passwordHash }
-    );
+    await this.usersRepository.update({ email }, { passwordHash });
   }
 
   async findAllUsers(filterDto: GetUsersFilterDto) {
@@ -108,12 +109,24 @@ export class UsersService {
       query.andWhere(
         new Brackets((qb) => {
           qb.where('user.email ILIKE :search', { search: `%${search}%` })
-            .orWhere('student.first_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('student.last_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('student.student_code ILIKE :search', { search: `%${search}%` })
-            .orWhere('instructor.first_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('instructor.last_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('instructor.instructor_code ILIKE :search', { search: `%${search}%` });
+            .orWhere('student.first_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('student.last_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('student.student_code ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.first_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.last_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.instructor_code ILIKE :search', {
+              search: `%${search}%`,
+            });
         }),
       );
     }
@@ -185,7 +198,8 @@ export class UsersService {
         if (updateDto.phone) user.student.phone = updateDto.phone;
         await queryRunner.manager.save(user.student);
       } else if (user.instructor) {
-        if (updateDto.firstName) user.instructor.first_name = updateDto.firstName;
+        if (updateDto.firstName)
+          user.instructor.first_name = updateDto.firstName;
         if (updateDto.lastName) user.instructor.last_name = updateDto.lastName;
         // Instructor ไม่มี phone ใน Entity
         await queryRunner.manager.save(user.instructor);
@@ -195,7 +209,6 @@ export class UsersService {
 
       // ส่งข้อมูลล่าสุดกลับไป
       return this.findOneUser(id);
-
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -221,9 +234,11 @@ export class UsersService {
     }
 
     // เช็ค Student Code ซ้ำไหม
-    const existingStudent = await this.dataSource.getRepository(Student).findOne({
-      where: { student_code: dto.studentCode }
-    });
+    const existingStudent = await this.dataSource
+      .getRepository(Student)
+      .findOne({
+        where: { student_code: dto.studentCode },
+      });
     if (existingStudent) {
       throw new ConflictException('รหัสนักศึกษานี้มีอยู่ในระบบแล้ว');
     }
@@ -258,7 +273,6 @@ export class UsersService {
 
       const { passwordHash, ...result } = savedUser;
       return result;
-
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -269,9 +283,11 @@ export class UsersService {
 
   async createInstructorByAdmin(dto: CreateInstructorByAdminDto) {
     // เช็ค Instructor Code ซ้ำไหม
-    const existingInstructor = await this.dataSource.getRepository(Instructor).findOne({
-      where: { instructor_code: dto.instructorCode }
-    });
+    const existingInstructor = await this.dataSource
+      .getRepository(Instructor)
+      .findOne({
+        where: { instructor_code: dto.instructorCode },
+      });
     if (existingInstructor) {
       throw new ConflictException('รหัสอาจารย์นี้มีอยู่ในระบบแล้ว');
     }
@@ -286,7 +302,9 @@ export class UsersService {
       // เช็คว่า User กรอก Email มาไหม? (ถ้ากรอก = สร้าง UserAccount ด้วย)
       if (dto.email && dto.password) {
         // เช็ค Email ซ้ำ
-        const existingUser = await this.usersRepository.findOne({ where: { email: dto.email } });
+        const existingUser = await this.usersRepository.findOne({
+          where: { email: dto.email },
+        });
         if (existingUser) {
           throw new ConflictException('อีเมลนี้ถูกใช้งานแล้ว');
         }
@@ -316,9 +334,8 @@ export class UsersService {
       return {
         message: 'สร้างข้อมูลอาจารย์สำเร็จ',
         hasAccount: !!savedUser,
-        instructor: instructor
+        instructor: instructor,
       };
-
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -327,7 +344,11 @@ export class UsersService {
     }
   }
 
-  async findAllInstructors(page: number = 1, limit: number = 10, search?: string) {
+  async findAllInstructors(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+  ) {
     const query = this.instructorRepository.createQueryBuilder('instructor');
 
     // Join ไปหา User (แบบ Left Join ถ้าไม่มี User ก็ไม่ error)
@@ -335,11 +356,19 @@ export class UsersService {
 
     // Search Logic (ค้นหาจากชื่อ หรือ รหัสอาจารย์)
     if (search) {
-      query.where(new Brackets((qb) => {
-        qb.where('instructor.first_name ILIKE :search', { search: `%${search}%` })
-          .orWhere('instructor.last_name ILIKE :search', { search: `%${search}%` })
-          .orWhere('instructor.instructor_code ILIKE :search', { search: `%${search}%` })
-      }));
+      query.where(
+        new Brackets((qb) => {
+          qb.where('instructor.first_name ILIKE :search', {
+            search: `%${search}%`,
+          })
+            .orWhere('instructor.last_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.instructor_code ILIKE :search', {
+              search: `%${search}%`,
+            });
+        }),
+      );
     }
 
     query.orderBy('instructor.create_at', 'DESC');
@@ -349,7 +378,7 @@ export class UsersService {
     const [instructors, total] = await query.getManyAndCount();
 
     // จัด Format ข้อมูลส่งกลับ
-    const result = instructors.map(inst => ({
+    const result = instructors.map((inst) => ({
       instructor_uuid: inst.instructor_uuid,
       instructor_code: inst.instructor_code,
       firstName: inst.first_name,
@@ -357,7 +386,7 @@ export class UsersService {
       hasAccount: !!inst.user,
       email: inst.user?.email || null,
       user_uuid: inst.user?.user_uuid || null,
-      isActive: inst.user?.isActive
+      isActive: inst.user?.isActive,
     }));
 
     return {
@@ -375,20 +404,24 @@ export class UsersService {
   async findOneInstructor(instructorId: string) {
     const instructor = await this.instructorRepository.findOne({
       where: { instructor_uuid: instructorId },
-      relations: ['user']
+      relations: ['user'],
     });
 
     if (!instructor) {
-      throw new NotFoundException(`Instructor with ID "${instructorId}" not found`);
+      throw new NotFoundException(
+        `Instructor with ID "${instructorId}" not found`,
+      );
     }
 
     return {
       ...instructor,
-      user: instructor.user ? {
-        email: instructor.user.email,
-        isActive: instructor.user.isActive,
-        user_uuid: instructor.user.user_uuid
-      } : null
+      user: instructor.user
+        ? {
+            email: instructor.user.email,
+            isActive: instructor.user.isActive,
+            user_uuid: instructor.user.user_uuid,
+          }
+        : null,
     };
   }
 
@@ -400,7 +433,9 @@ export class UsersService {
     });
 
     if (!instructor) {
-      throw new NotFoundException(`Instructor with ID "${instructorId}" not found`);
+      throw new NotFoundException(
+        `Instructor with ID "${instructorId}" not found`,
+      );
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -418,7 +453,9 @@ export class UsersService {
       if (!instructor.user) {
         if (updateDto.email && updateDto.password) {
           // เช็ค Email ซ้ำ
-          const existingUser = await this.usersRepository.findOne({ where: { email: updateDto.email } });
+          const existingUser = await this.usersRepository.findOne({
+            where: { email: updateDto.email },
+          });
           if (existingUser) {
             throw new ConflictException('อีเมลนี้ถูกใช้งานแล้ว');
           }
@@ -429,7 +466,8 @@ export class UsersService {
             email: updateDto.email,
             passwordHash: hashedPassword,
             role: 'instructor',
-            isActive: updateDto.isActive !== undefined ? updateDto.isActive : true,
+            isActive:
+              updateDto.isActive !== undefined ? updateDto.isActive : true,
           });
 
           const savedUser = await queryRunner.manager.save(newUser);
@@ -453,7 +491,6 @@ export class UsersService {
       await queryRunner.commitTransaction();
 
       return this.findOneInstructor(instructorId);
-
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -469,7 +506,9 @@ export class UsersService {
     });
 
     if (!instructor) {
-      throw new NotFoundException(`Instructor with ID "${instructorId}" not found`);
+      throw new NotFoundException(
+        `Instructor with ID "${instructorId}" not found`,
+      );
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -491,7 +530,6 @@ export class UsersService {
       await queryRunner.commitTransaction();
 
       return { message: 'Instructor deleted successfully' };
-
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -499,4 +537,5 @@ export class UsersService {
       await queryRunner.release();
     }
   }
+  
 }
