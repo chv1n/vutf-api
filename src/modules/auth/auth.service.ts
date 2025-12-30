@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
+import { StudentService } from '../student/student.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
@@ -18,6 +19,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 export class AuthService {
   constructor(
     private usersService: UsersService,
+    private studentService: StudentService,
     private jwtService: JwtService,
     private configService: ConfigService,
     private redisService: RedisService,
@@ -187,7 +189,7 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    const user = await this.usersService.studentRegister(email, hashedPassword, {
+    const user = await this.studentService.studentRegister(email, hashedPassword, {
       prefixName: dto.prefixName,
       firstName: dto.firstName,
       lastName: dto.lastName,

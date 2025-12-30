@@ -1,5 +1,7 @@
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from "./users/users.module";
+import { StudentModule } from './student/student.module';
+import { InstructorModule } from './instructor/instructor.module';
 import { MailModule } from './mail/mail.module';
 import { InspectionRoundModule } from './inspection_round/inspection_round.module';
 import { ThesisGroupModule } from './thesis-group/thesis-group.module';
@@ -14,6 +16,8 @@ import { AdvisorAssignmentModule } from './advisor-assignment/advisor-assignment
 
 export const AppModules = [
     UsersModule,
+    StudentModule,
+    InstructorModule,
     AuthModule,
     MailModule,
     InspectionRoundModule,
