@@ -1,5 +1,10 @@
 import * as bcrypt from 'bcrypt';
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource, Brackets } from 'typeorm';
 import { UserAccount } from './entities/user-account.entity';
@@ -16,7 +21,6 @@ import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UsersService {
-
   constructor(
     @InjectRepository(UserAccount)
     private usersRepository: Repository<UserAccount>,
@@ -134,10 +138,7 @@ export class UsersService {
   }
 
   async updatePassword(email: string, passwordHash: string): Promise<void> {
-    await this.usersRepository.update(
-      { email },
-      { passwordHash }
-    );
+    await this.usersRepository.update({ email }, { passwordHash });
   }
 
   async findAllUsers(filterDto: GetUsersFilterDto) {
@@ -156,12 +157,24 @@ export class UsersService {
       query.andWhere(
         new Brackets((qb) => {
           qb.where('user.email ILIKE :search', { search: `%${search}%` })
-            .orWhere('student.first_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('student.last_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('student.student_code ILIKE :search', { search: `%${search}%` })
-            .orWhere('instructor.first_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('instructor.last_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('instructor.instructor_code ILIKE :search', { search: `%${search}%` });
+            .orWhere('student.first_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('student.last_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('student.student_code ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.first_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.last_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.instructor_code ILIKE :search', {
+              search: `%${search}%`,
+            });
         }),
       );
     }
@@ -206,9 +219,9 @@ export class UsersService {
   }
 
   async updateUser(id: string, dto: AdminUpdateUserDto) {
-    const user = await this.usersRepository.findOne({ 
-        where: { user_uuid: id },
-        relations: ['student', 'instructor'] // Load ความสัมพันธ์มาด้วย
+    const user = await this.usersRepository.findOne({
+      where: { user_uuid: id },
+      relations: ['student', 'instructor'] // Load ความสัมพันธ์มาด้วย
     });
 
     if (!user) throw new NotFoundException('User not found');
@@ -225,27 +238,27 @@ export class UsersService {
         const salt = await bcrypt.genSalt();
         user.passwordHash = await bcrypt.hash(dto.password, salt);
       }
-      
+
       await queryRunner.manager.save(user);
 
       // 2. อัปเดตข้อมูล Profile ตาม Role
       if (user.role === 'student' && user.student) {
-          // ถ้าเป็นนักเรียน และมีข้อมูล Profile อยู่แล้ว
-          if (dto.prefixName) user.student.prefix_name = dto.prefixName;
-          if (dto.firstName) user.student.first_name = dto.firstName;
-          if (dto.lastName) user.student.last_name = dto.lastName;
-          if (dto.phone) user.student.phone = dto.phone;
-          if (dto.studentCode) user.student.student_code = dto.studentCode;
-          
-          await queryRunner.manager.save(user.student);
-      } 
+        // ถ้าเป็นนักเรียน และมีข้อมูล Profile อยู่แล้ว
+        if (dto.prefixName) user.student.prefix_name = dto.prefixName;
+        if (dto.firstName) user.student.first_name = dto.firstName;
+        if (dto.lastName) user.student.last_name = dto.lastName;
+        if (dto.phone) user.student.phone = dto.phone;
+        if (dto.studentCode) user.student.student_code = dto.studentCode;
+
+        await queryRunner.manager.save(user.student);
+      }
       else if (user.role === 'instructor' && user.instructor) {
-          // ถ้าเป็นอาจารย์
-          if (dto.firstName) user.instructor.first_name = dto.firstName;
-          if (dto.lastName) user.instructor.last_name = dto.lastName;
-          if (dto.instructorCode) user.instructor.instructor_code = dto.instructorCode;
-          
-          await queryRunner.manager.save(user.instructor);
+        // ถ้าเป็นอาจารย์
+        if (dto.firstName) user.instructor.first_name = dto.firstName;
+        if (dto.lastName) user.instructor.last_name = dto.lastName;
+        if (dto.instructorCode) user.instructor.instructor_code = dto.instructorCode;
+
+        await queryRunner.manager.save(user.instructor);
       }
 
       await queryRunner.commitTransaction();
@@ -354,7 +367,7 @@ export class UsersService {
       if (user.student || user.passwordHash) {
         return {
           isValid: true,
-          isSetup: true, 
+          isSetup: true,
           email: user.email
         };
       }
@@ -485,7 +498,6 @@ export class UsersService {
         instructor,
         tempEmail: !dto.email ? emailToUse : undefined
       };
-
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -494,7 +506,11 @@ export class UsersService {
     }
   }
 
-  async findAllInstructors(page: number = 1, limit: number = 10, search?: string) {
+  async findAllInstructors(
+    page: number = 1,
+    limit: number = 10,
+    search?: string,
+  ) {
     const query = this.instructorRepository.createQueryBuilder('instructor');
 
     // Join ไปหา User (แบบ Left Join ถ้าไม่มี User ก็ไม่ error)
@@ -502,11 +518,19 @@ export class UsersService {
 
     // Search Logic (ค้นหาจากชื่อ หรือ รหัสอาจารย์)
     if (search) {
-      query.where(new Brackets((qb) => {
-        qb.where('instructor.first_name ILIKE :search', { search: `%${search}%` })
-          .orWhere('instructor.last_name ILIKE :search', { search: `%${search}%` })
-          .orWhere('instructor.instructor_code ILIKE :search', { search: `%${search}%` })
-      }));
+      query.where(
+        new Brackets((qb) => {
+          qb.where('instructor.first_name ILIKE :search', {
+            search: `%${search}%`,
+          })
+            .orWhere('instructor.last_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.instructor_code ILIKE :search', {
+              search: `%${search}%`,
+            });
+        }),
+      );
     }
 
     query.orderBy('instructor.create_at', 'DESC');
@@ -516,7 +540,7 @@ export class UsersService {
     const [instructors, total] = await query.getManyAndCount();
 
     // จัด Format ข้อมูลส่งกลับ
-    const result = instructors.map(inst => ({
+    const result = instructors.map((inst) => ({
       instructor_uuid: inst.instructor_uuid,
       instructor_code: inst.instructor_code,
       firstName: inst.first_name,
@@ -524,7 +548,7 @@ export class UsersService {
       hasAccount: !!inst.user,
       email: inst.user?.email || null,
       user_uuid: inst.user?.user_uuid || null,
-      isActive: inst.user?.isActive
+      isActive: inst.user?.isActive,
     }));
 
     return {
@@ -542,20 +566,24 @@ export class UsersService {
   async findOneInstructor(instructorId: string) {
     const instructor = await this.instructorRepository.findOne({
       where: { instructor_uuid: instructorId },
-      relations: ['user']
+      relations: ['user'],
     });
 
     if (!instructor) {
-      throw new NotFoundException(`Instructor with ID "${instructorId}" not found`);
+      throw new NotFoundException(
+        `Instructor with ID "${instructorId}" not found`,
+      );
     }
 
     return {
       ...instructor,
-      user: instructor.user ? {
-        email: instructor.user.email,
-        isActive: instructor.user.isActive,
-        user_uuid: instructor.user.user_uuid
-      } : null
+      user: instructor.user
+        ? {
+          email: instructor.user.email,
+          isActive: instructor.user.isActive,
+          user_uuid: instructor.user.user_uuid,
+        }
+        : null,
     };
   }
 
@@ -611,7 +639,6 @@ export class UsersService {
 
       await queryRunner.commitTransaction();
       return this.findOneInstructor(instructorId);
-
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
@@ -627,15 +654,45 @@ export class UsersService {
     });
 
     if (!instructor) {
-      throw new NotFoundException(`Instructor with ID "${instructorId}" not found`);
+      throw new NotFoundException(
+        `Instructor with ID "${instructorId}" not found`,
+      );
     }
 
-    // ถ้ามี User Account ผูกอยู่ ให้ Deactivate User นั้น
-    if (instructor.user) {
-      instructor.user.isActive = false;
-      await this.usersRepository.save(instructor.user);
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // เก็บ user_uuid ไว้ก่อน (ถ้ามี)
+      const userUuid = instructor.user?.user_uuid;
+
+      // ลบข้อมูลในตาราง Instructor ก่อน
+      await queryRunner.manager.delete(Instructor, instructorId);
+
+      // ถ้ามี User Account ผูกอยู่ -> ลบ User Account ทิ้ง
+      if (userUuid) {
+        await queryRunner.manager.delete(UserAccount, userUuid);
+      }
+
+      await queryRunner.commitTransaction();
+
+      return { message: 'Instructor deleted successfully' };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+
+      // ถ้ามี User Account ผูกอยู่ ให้ Deactivate User นั้น
+      if (instructor.user) {
+        instructor.user.isActive = false;
+        await this.usersRepository.save(instructor.user);
+      }
+
+      return { message: 'Instructor account deactivated successfully' };
     }
 
-    return { message: 'Instructor account deactivated successfully' };
   }
 }
