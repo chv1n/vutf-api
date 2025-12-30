@@ -24,9 +24,15 @@ export class AdvisorAssignment {
   @CreateDateColumn()
   assigned_at: Date;
 
+  @Column()
+  instructor_id: string;
+
   @ManyToOne(() => Instructor, (instructor) => instructor.advisor)
   @JoinColumn({ name: 'instructor_id' })
   instructor: Instructor;
+
+  @Column()
+  group_id: string;
 
   @ManyToOne(() => ThesisGroup, (group) => group.advisor)
   @JoinColumn({ name: 'group_id' })

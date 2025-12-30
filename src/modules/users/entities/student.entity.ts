@@ -5,8 +5,10 @@ import {
   CreateDateColumn,
   OneToOne,
   JoinColumn,
+  OneToMany,
 } from 'typeorm';
 import { UserAccount } from './user-account.entity';
+import { GroupMember } from 'src/modules/group-member/entities/group-member.entity';
 
 @Entity({ name: 'student' })
 export class Student {
@@ -18,7 +20,6 @@ export class Student {
 
   @Column()
   prefix_name: string;
-
 
   @Column()
   first_name: string;
@@ -40,4 +41,7 @@ export class Student {
   })
   @JoinColumn({ name: 'user_uuid' })
   user: UserAccount;
+
+  @OneToMany(() => GroupMember, (member) => member.student)
+  groupMembers: GroupMember[];
 }

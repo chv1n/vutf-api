@@ -25,8 +25,8 @@ export const AppModules = [
 
 
     
-    // ThesisModule,
-    // GroupMemberModule,
-    // AdvisorAssignmentModule,
+    ThesisModule,
+    GroupMemberModule,
+    AdvisorAssignmentModule,
 ]
 

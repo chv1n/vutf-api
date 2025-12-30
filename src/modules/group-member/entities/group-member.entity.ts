@@ -8,6 +8,8 @@ import {
 } from 'typeorm';
 import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
 import { GroupMemberRole } from '../enum/group-member-role.enum';
+import { InvitationStatus } from '../enum/invitation-status.enum';
+import { Student } from 'src/modules/users/entities/student.entity';
 
 @Entity('group_members')
 export class GroupMember {
@@ -15,7 +17,11 @@ export class GroupMember {
   member_id: string;
 
   @Column()
-  student_id: string;
+  student_uuid: string;
+
+  @ManyToOne(() => Student, (student) => student.groupMembers)
+  @JoinColumn({ name: 'student_uuid', referencedColumnName: 'student_uuid' })
+  student: Student;
 
   @Column({
     type: 'enum',
@@ -23,14 +29,21 @@ export class GroupMember {
   })
   role: string;
 
-  @Column({ default: 'pending' })
-  invitation_status: string;
+  @Column({
+    type: 'enum',
+    enum: InvitationStatus,
+    default: InvitationStatus.PENDING,
+  })
+  invitation_status: InvitationStatus;
 
   @CreateDateColumn()
   invited_at: Date;
 
   @Column({ type: 'timestamp', nullable: true })
   approved_at: Date;
+
+  @Column()
+  group_id: string;
 
   @ManyToOne(() => ThesisGroup, (group) => group.members)
   @JoinColumn({ name: 'group_id' })

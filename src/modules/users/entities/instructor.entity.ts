@@ -7,7 +7,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { UserAccount } from './user-account.entity';
-import { OneToMany } from 'typeorm/browser';
+import { OneToMany } from 'typeorm';
 import { AdvisorAssignment } from 'src/modules/advisor-assignment/entities/advisor-assignment.entity';
 
 @Entity({ name: 'instructor' })
