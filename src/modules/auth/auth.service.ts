@@ -47,7 +47,7 @@ export class AuthService {
     const { email, password } = loginDto;
     const user = await this.usersService.findByEmail(email);
 
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
       throw new BadRequestException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
     }
 
@@ -135,7 +135,7 @@ export class AuthService {
     const { email } = dto;
 
     const existingUser = await this.usersService.findByEmail(email);
-    if (existingUser) {
+    if (existingUser && existingUser.passwordHash !== null) {
       throw new ConflictException('This email is already registered.');
     }
 
@@ -181,7 +181,7 @@ export class AuthService {
     }
 
     const existingUser = await this.usersService.findByEmail(email);
-    if (existingUser) {
+    if (existingUser && existingUser.passwordHash !== null) {
       throw new ConflictException('This email is already registered.');
     }
 
