@@ -14,7 +14,6 @@ export class ThesisGroupController {
     @Body() createThesisGroupDto: CreateThesisGroupDto,
     @Req() req,
   ) {
-    console.log('User Info:', req.user.userId);
     return this.thesisGroupService.createFullThesis(createThesisGroupDto, req.user.userId);
   }
 }
