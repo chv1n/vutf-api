@@ -9,7 +9,5 @@ export class CreateGroupMemberDto {
   @IsEnum(GroupMemberRole)
   role: string;
 
-  @IsOptional()
-  @IsEnum(InvitationStatus)
-  invitation_status?: InvitationStatus;
+
 }
