@@ -12,15 +12,24 @@ import {
 import { StudentService } from './student.service';
 import { InviteStudentsDto } from './dto/invite-students.dto';
 import { SetupStudentProfileDto } from './dto/setup-student-profile.dto';
+import { GetStudentsQueryDto } from './dto/get-students-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 
-@Controller('students') 
+@Controller('students')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class StudentController {
-  constructor(private readonly studentService: StudentService) {}
+  constructor(private readonly studentService: StudentService) { }
+
+
+  @Public()
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  async findAll(@Query() query: GetStudentsQueryDto) {
+    return this.studentService.findAll(query);
+  }
 
   @Roles('admin')
   @Post('invite')
@@ -29,7 +38,6 @@ export class StudentController {
     return this.studentService.inviteStudents(dto);
   }
 
-  @Public()
   @Get('validate-invite-token')
   @HttpCode(HttpStatus.OK)
   async validateToken(@Query('token') token: string) {
