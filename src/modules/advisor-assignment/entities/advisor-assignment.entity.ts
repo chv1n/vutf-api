@@ -25,10 +25,10 @@ export class AdvisorAssignment {
   assigned_at: Date;
 
   @Column()
-  instructor_id: string;
+  instructor_uuid: string;
 
   @ManyToOne(() => Instructor, (instructor) => instructor.advisor)
-  @JoinColumn({ name: 'instructor_id' })
+  @JoinColumn({ name: 'instructor_uuid' })
   instructor: Instructor;
 
   @Column()
