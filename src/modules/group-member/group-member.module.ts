@@ -3,12 +3,12 @@ import { GroupMemberService } from './group-member.service';
 import { GroupMemberController } from './group-member.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { GroupMember } from './entities/group-member.entity';
-import { ThesisGroupModule } from '../thesis-group/thesis-group.module';
+import { ThesisGroup } from '../thesis-group/entities/thesis-group.entity';
 import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([GroupMember]),
+    TypeOrmModule.forFeature([GroupMember, ThesisGroup]),
     UsersModule
   ],
   controllers: [GroupMemberController],
@@ -16,3 +16,4 @@ import { UsersModule } from '../users/users.module';
   exports: [GroupMemberService],
 })
 export class GroupMemberModule { }
+
