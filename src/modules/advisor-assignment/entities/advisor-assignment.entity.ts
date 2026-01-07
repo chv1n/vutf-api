@@ -3,6 +3,7 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
+  DeleteDateColumn,
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
@@ -37,4 +38,7 @@ export class AdvisorAssignment {
   @ManyToOne(() => ThesisGroup, (group) => group.advisor)
   @JoinColumn({ name: 'group_id' })
   group: ThesisGroup;
+
+  @DeleteDateColumn()
+  deleted_at: Date | null;
 }
