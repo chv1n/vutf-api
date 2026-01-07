@@ -6,6 +6,19 @@ import * as bcrypt from 'bcrypt';
 import { UserAccount } from '../users/entities/user-account.entity';
 import { Instructor } from '../users/entities/instructor.entity';
 import { CreateInstructorByAdminDto } from './dto/create-instructor.dto';
+import { GetInstructorsQueryDto } from './dto/get-instructors-query.dto';
+import { QueryHelper, PaginatedResponse } from '../../common/helpers';
+import { InstructorResponse } from './interfaces';
+
+// ==================== Constants ====================
+const INSTRUCTOR_SORT_FIELDS = ['instructor_code', 'first_name', 'last_name', 'create_at', 'email'];
+const INSTRUCTOR_SEARCH_FIELDS = [
+  'instructor.instructor_code',
+  'instructor.first_name',
+  'instructor.last_name',
+  'user.email',
+];
+const INSTRUCTOR_FIELD_MAPPING = { email: 'user.email' };
 
 @Injectable()
 export class InstructorService {
@@ -17,7 +30,7 @@ export class InstructorService {
     private instructorRepository: Repository<Instructor>,
 
     private dataSource: DataSource,
-  ) {}
+  ) { }
 
   async createInstructorByAdmin(dto: CreateInstructorByAdminDto) {
     // เช็คว่ารหัสอาจารย์ซ้ำไหม
@@ -82,4 +95,61 @@ export class InstructorService {
     }
   }
 
+  async findAll(query: GetInstructorsQueryDto): Promise<PaginatedResponse<InstructorResponse>> {
+    const { page = 1, limit = 10, sortBy = 'create_at', sortOrder = 'DESC' } = query;
+
+    const queryBuilder = this.createBaseQuery();
+
+    this.applySearch(queryBuilder, query.search);
+    this.applyFilters(queryBuilder, query);
+    QueryHelper.applySorting(queryBuilder, 'instructor', {
+      sortBy,
+      sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
+      validFields: INSTRUCTOR_SORT_FIELDS,
+      defaultField: 'create_at',
+      fieldMapping: INSTRUCTOR_FIELD_MAPPING,
+    });
+    QueryHelper.applyPagination(queryBuilder, { page, limit });
+
+    const [instructors, total] = await queryBuilder.getManyAndCount();
+    return QueryHelper.createPaginatedResponse(
+      instructors.map(this.mapToResponse),
+      total,
+      page,
+      limit,
+    );
+  }
+
+
+  private createBaseQuery() {
+    return this.instructorRepository
+      .createQueryBuilder('instructor')
+      .leftJoinAndSelect('instructor.user', 'user');
+  }
+
+  private applySearch(queryBuilder: ReturnType<typeof this.createBaseQuery>, search?: string) {
+    QueryHelper.applySearch(queryBuilder, search, INSTRUCTOR_SEARCH_FIELDS);
+  }
+
+  private applyFilters(queryBuilder: ReturnType<typeof this.createBaseQuery>, query: GetInstructorsQueryDto) {
+    const { instructorCode, isActive } = query;
+
+    if (instructorCode) {
+      queryBuilder.andWhere('instructor.instructor_code = :instructorCode', { instructorCode });
+    }
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('user.isActive = :isActive', { isActive });
+    }
+  }
+
+  private mapToResponse = (instructor: Instructor): InstructorResponse => ({
+    instructor_uuid: instructor.instructor_uuid,
+    instructor_code: instructor.instructor_code,
+    first_name: instructor.first_name,
+    last_name: instructor.last_name,
+    full_name: `${instructor.first_name} ${instructor.last_name}`,
+    email: instructor.user?.email || null,
+    is_active: instructor.user?.isActive || false,
+    create_at: instructor.create_at,
+  });
 }

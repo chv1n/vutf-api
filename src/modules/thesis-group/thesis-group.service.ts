@@ -1,4 +1,4 @@
-import { NotFoundException, Injectable, ConflictException, BadRequestException } from '@nestjs/common';
+import { NotFoundException, Injectable, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CreateThesisGroupDto } from './dto/create-thesis-group.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ThesisGroup } from './entities/thesis-group.entity';
@@ -12,6 +12,7 @@ import { CreateGroupMemberDto } from '../group-member/dto/create-group-member.dt
 import { UsersService } from '../users/users.service';
 import { GroupMemberRole } from '../group-member/enum/group-member-role.enum';
 import { InvitationStatus } from '../group-member/enum/invitation-status.enum';
+import { UpdateThesisDto } from '../thesis/dto/update-thesis.dto';
 
 @Injectable()
 export class ThesisGroupService {
@@ -111,7 +112,7 @@ export class ThesisGroupService {
     const group = manager.create(ThesisGroup, {
       created_by: { user_uuid: userId },
       thesis: thesis,
-      status: true,
+      status: false, // default false, becomes true when all members approved
     });
     const savedThesisGroup = await manager.save(group);
     return savedThesisGroup;
@@ -130,5 +131,98 @@ export class ThesisGroupService {
     };
     const addedOwner = [ownerMember, ...group_member];
     return addedOwner;
+  }
+
+  // ============ Thesis Info Update ============
+
+  async updateThesisInfo(
+    userId: string,
+    groupId: string,
+    dto: UpdateThesisDto,
+  ): Promise<{ message: string }> {
+    // Validate owner permission
+    await this.groupMemberService.validateIsOwner(userId, groupId);
+
+    // Get group with thesis
+    const group = await this.thesisGroupRepository.findOne({
+      where: { group_id: groupId },
+      relations: ['thesis'],
+    });
+
+    if (!group || !group.thesis) {
+      throw new NotFoundException('Group or thesis not found');
+    }
+
+    // Update thesis
+    await this.thesisService.updateThesis(group.thesis.thesis_id, dto);
+
+    return { message: 'Thesis updated successfully' };
+  }
+
+  async getThesisGroupById(groupId: string): Promise<ThesisGroup> {
+    const group = await this.thesisGroupRepository.findOne({
+      where: { group_id: groupId },
+      relations: {
+        thesis: true,
+        members: {
+          student: true,
+        },
+        advisor: {
+          instructor: true,
+        },
+        created_by: {
+          student: true,
+        },
+      },
+      select: {
+        group_id: true,
+        status: true,
+        created_at: true,
+        thesis: {
+          thesis_id: true,
+          thesis_code: true,
+          thesis_name_th: true,
+          thesis_name_en: true,
+          graduation_year: true,
+        },
+        members: {
+          member_id: true,
+          student_uuid: true,
+          role: true,
+          invitation_status: true,
+          student: {
+            student_uuid: true,
+            student_code: true,
+            prefix_name: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
+        advisor: {
+          advisor_id: true,
+          role: true,
+          instructor: {
+            instructor_uuid: true,
+            instructor_code: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
+        created_by: {
+          user_uuid: true,
+          student: {
+            prefix_name: true,
+            first_name: true,
+            last_name: true,
+          },
+        },
+      },
+    });
+
+    if (!group) {
+      throw new NotFoundException('Thesis group not found');
+    }
+
+    return group;
   }
 }

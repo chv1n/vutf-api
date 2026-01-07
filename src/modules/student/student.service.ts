@@ -15,8 +15,22 @@ import { Student } from '../users/entities/student.entity';
 
 import { InviteStudentsDto } from './dto/invite-students.dto';
 import { SetupStudentProfileDto } from './dto/setup-student-profile.dto';
+import { GetStudentsQueryDto } from './dto/get-students-query.dto';
 
 import { MailService } from '../../shared/services/mail.service';
+import { QueryHelper, PaginatedResponse } from '../../common/helpers';
+import { StudentResponse } from './interfaces';
+
+// ==================== Constants ====================
+const STUDENT_SORT_FIELDS = ['student_code', 'first_name', 'last_name', 'create_at', 'email'];
+const STUDENT_SEARCH_FIELDS = [
+  'student.student_code',
+  'student.first_name',
+  'student.last_name',
+  'student.phone',
+  'user.email',
+];
+const STUDENT_FIELD_MAPPING = { email: 'user.email' };
 
 @Injectable()
 export class StudentService {
@@ -31,7 +45,72 @@ export class StudentService {
     private mailService: MailService,
     private jwtService: JwtService,
     private configService: ConfigService,
-  ) {}
+  ) { }
+
+
+  async findAll(query: GetStudentsQueryDto): Promise<PaginatedResponse<StudentResponse>> {
+    console.log("hello stu find all")
+    const { page = 1, limit = 10, sortBy = 'create_at', sortOrder = 'DESC' } = query;
+
+    const queryBuilder = this.createBaseQuery();
+
+    this.applySearch(queryBuilder, query.search);
+    this.applyFilters(queryBuilder, query);
+    QueryHelper.applySorting(queryBuilder, 'student', {
+      sortBy,
+      sortOrder: sortOrder.toUpperCase() as 'ASC' | 'DESC',
+      validFields: STUDENT_SORT_FIELDS,
+      defaultField: 'create_at',
+      fieldMapping: STUDENT_FIELD_MAPPING,
+    });
+    QueryHelper.applyPagination(queryBuilder, { page, limit });
+
+    const [students, total] = await queryBuilder.getManyAndCount();
+    return QueryHelper.createPaginatedResponse(
+      students.map(this.mapToResponse),
+      total,
+      page,
+      limit,
+    );
+  }
+
+
+  private createBaseQuery() {
+    return this.studentRepository
+      .createQueryBuilder('student')
+      .leftJoinAndSelect('student.user', 'user');
+  }
+
+  private applySearch(queryBuilder: ReturnType<typeof this.createBaseQuery>, search?: string) {
+    QueryHelper.applySearch(queryBuilder, search, STUDENT_SEARCH_FIELDS);
+  }
+
+  private applyFilters(queryBuilder: ReturnType<typeof this.createBaseQuery>, query: GetStudentsQueryDto) {
+    const { prefixName, studentCode, isActive } = query;
+
+    if (prefixName) {
+      queryBuilder.andWhere('student.prefix_name = :prefixName', { prefixName });
+    }
+    if (studentCode) {
+      queryBuilder.andWhere('student.student_code = :studentCode', { studentCode });
+    }
+    if (isActive !== undefined) {
+      queryBuilder.andWhere('user.isActive = :isActive', { isActive });
+    }
+  }
+
+  private mapToResponse = (student: Student): StudentResponse => ({
+    student_uuid: student.student_uuid,
+    student_code: student.student_code,
+    prefix_name: student.prefix_name,
+    first_name: student.first_name,
+    last_name: student.last_name,
+    full_name: `${student.prefix_name}${student.first_name} ${student.last_name}`,
+    phone: student.phone,
+    email: student.user?.email || null,
+    is_active: student.user?.isActive || false,
+    create_at: student.create_at,
+  });
 
   async studentRegister(
     email: string,

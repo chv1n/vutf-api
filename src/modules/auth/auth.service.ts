@@ -30,7 +30,7 @@ export class AuthService {
   async getMe(userId: string) {
     // ดึงข้อมูล User Account
     const user = await this.usersService.findById(userId);
-    
+
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
@@ -62,7 +62,7 @@ export class AuthService {
 
     // 4. Generate Tokens
     const accessToken = this.jwtService.sign(payload, {
-      expiresIn: '1m',
+      expiresIn: '15m',
       secret: process.env.JWT_ACCESS_SECRET
     });
 
