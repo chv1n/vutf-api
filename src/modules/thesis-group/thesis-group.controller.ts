@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
 import { ThesisGroupService } from './thesis-group.service';
 import { CreateThesisGroupDto } from './dto/create-thesis-group.dto';
 import { AuthGuard } from '@nestjs/passport';
