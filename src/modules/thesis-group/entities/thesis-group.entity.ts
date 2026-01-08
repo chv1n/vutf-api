@@ -10,9 +10,9 @@ import {
 } from 'typeorm';
 import { Thesis } from '../../thesis/entities/thesis.entity';
 import { GroupMember } from '../../group-member/entities/group-member.entity';
-import { UserAccount } from 'src/modules/users/entities/user-account.entity';
-import { AdvisorAssignment } from 'src/modules/advisor-assignment/entities/advisor-assignment.entity';
-import { Submission } from '../../../submissions/entities/submission.entity';
+import { UserAccount } from '../../users/entities/user-account.entity';
+import { AdvisorAssignment } from '../../advisor-assignment/entities/advisor-assignment.entity';
+import { Submission } from '../../submissions/entities/submission.entity';
 
 @Entity('thesis_group')
 export class ThesisGroup {

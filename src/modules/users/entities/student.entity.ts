@@ -8,7 +8,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { UserAccount } from './user-account.entity';
-import { GroupMember } from 'src/modules/group-member/entities/group-member.entity';
+import { GroupMember } from '../../group-member/entities/group-member.entity';
 
 @Entity({ name: 'student' })
 export class Student {

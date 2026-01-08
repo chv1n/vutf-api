@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToOne, OneToMany } from 'typeorm';
 import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
-import { Submission } from '../../../submissions/entities/submission.entity';
+import { Submission } from '../../submissions/entities/submission.entity';
 
 @Entity('thesis')
 export class Thesis {

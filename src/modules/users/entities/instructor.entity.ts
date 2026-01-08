@@ -8,7 +8,7 @@ import {
 } from 'typeorm';
 import { UserAccount } from './user-account.entity';
 import { OneToMany } from 'typeorm';
-import { AdvisorAssignment } from 'src/modules/advisor-assignment/entities/advisor-assignment.entity';
+import { AdvisorAssignment } from '../../advisor-assignment/entities/advisor-assignment.entity';
 
 @Entity({ name: 'instructor' })
 export class Instructor {

@@ -6,16 +6,13 @@ import {
     ManyToOne,
     JoinColumn,
 } from 'typeorm';
-import { Thesis } from '../../modules/thesis/entities/thesis.entity';
-import { ThesisGroup } from '../../modules/thesis-group/entities/thesis-group.entity';
-import { UserAccount } from '../../modules/users/entities/user-account.entity';
-import { InspectionRound } from '../../modules/inspection_round/entities/inspection_round.entity';
+import { Thesis } from '../../thesis/entities/thesis.entity';
+import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
+import { UserAccount } from '../../users/entities/user-account.entity';
+import { InspectionRound } from '../../inspection_round/entities/inspection_round.entity';
+import { SubmissionStatus } from '../enum/submission-status.enum';
 
-export enum SubmissionStatus {
-    PENDING = 'PENDING',
-    APPROVED = 'APPROVED',
-    REJECTED = 'REJECTED',
-}
+
 
 @Entity('submissions')
 export class Submission {

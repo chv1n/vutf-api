@@ -10,7 +10,7 @@ import {
 import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
 import { GroupMemberRole } from '../enum/group-member-role.enum';
 import { InvitationStatus } from '../enum/invitation-status.enum';
-import { Student } from 'src/modules/users/entities/student.entity';
+import { Student } from '../../users/entities/student.entity';
 
 @Entity('group_members')
 export class GroupMember {

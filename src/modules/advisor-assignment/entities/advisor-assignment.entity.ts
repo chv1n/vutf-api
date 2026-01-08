@@ -8,7 +8,7 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
-import { Instructor } from 'src/modules/users/entities/instructor.entity';
+import { Instructor } from '../../users/entities/instructor.entity';
 import { AdvisorRole } from '../enum/advisor-role.enum';
 
 @Entity('advisor_assignment')

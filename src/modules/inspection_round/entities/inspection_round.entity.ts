@@ -1,5 +1,5 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
-import { Submission } from '../../../submissions/entities/submission.entity';
+import { Submission } from '../../submissions/entities/submission.entity';
 
 export enum InspectionStatus {
   OPEN = 'OPEN',
