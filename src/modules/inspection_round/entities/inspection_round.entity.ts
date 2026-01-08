@@ -1,4 +1,5 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
+import { Submission } from '../../../submissions/entities/submission.entity';
 
 export enum InspectionStatus {
   OPEN = 'OPEN',
@@ -19,7 +20,7 @@ export class InspectionRound {
   @Column({ name: 'academic_year', length: 4 })
   academicYear: string;
 
-  @Column({ name: 'term', length: 1 }) 
+  @Column({ name: 'term', length: 1 })
   term: string;
 
   @Column({ name: 'round_number', type: 'int' })
@@ -55,9 +56,12 @@ export class InspectionRound {
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 
-  @Column({ name: 'is_manual_closed', default: false }) 
+  @Column({ name: 'is_manual_closed', default: false })
   isManualClosed: boolean;
 
   @CreateDateColumn({ name: 'create_at' })
   createAt: Date;
+
+  @OneToMany(() => Submission, (submission) => submission.inspectionRound)
+  submissions: Submission[];
 }

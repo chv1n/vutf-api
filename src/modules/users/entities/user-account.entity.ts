@@ -9,6 +9,7 @@ import {
 import { Student } from './student.entity';
 import { Instructor } from './instructor.entity';
 import { ThesisGroup } from 'src/modules/thesis-group/entities/thesis-group.entity';
+import { Submission } from '../../../submissions/entities/submission.entity';
 
 @Entity({ name: 'user_account' })
 export class UserAccount {
@@ -38,4 +39,10 @@ export class UserAccount {
 
   @OneToMany(() => ThesisGroup, (thesisGroup) => thesisGroup.created_by)
   thesisGroups: ThesisGroup[];
+
+  @OneToMany(() => Submission, (submission) => submission.submitter)
+  submittedSubmissions: Submission[];
+
+  @OneToMany(() => Submission, (submission) => submission.reviewer)
+  reviewedSubmissions: Submission[];
 }
