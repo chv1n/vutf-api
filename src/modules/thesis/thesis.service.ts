@@ -1,0 +1,34 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository, EntityManager } from 'typeorm';
+import { CreateThesisDto } from './dto/create-thesis.dto';
+import { UpdateThesisDto } from './dto/update-thesis.dto';
+import { Thesis } from './entities/thesis.entity';
+
+@Injectable()
+export class ThesisService {
+  constructor(
+    @InjectRepository(Thesis)
+    private readonly thesisRepo: Repository<Thesis>,
+  ) { }
+
+  async createThesis(
+    manager: EntityManager,
+    dto: CreateThesisDto,
+  ): Promise<Thesis> {
+    const thesis = manager.create(Thesis, { ...dto });
+    return await manager.save(thesis);
+  }
+
+  async updateThesis(thesisId: string, dto: UpdateThesisDto): Promise<Thesis> {
+    const thesis = await this.thesisRepo.findOneBy({ thesis_id: thesisId });
+
+    if (!thesis) {
+      throw new NotFoundException('Thesis not found');
+    }
+
+    Object.assign(thesis, dto);
+    return await this.thesisRepo.save(thesis);
+  }
+}
+

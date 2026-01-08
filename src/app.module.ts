@@ -1,13 +1,21 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { MailerModule } from '@nestjs-modules/mailer';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import { join } from 'path';
 import appConfig from './config/app.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppModules } from './modules';
+import { ScheduleModule } from '@nestjs/schedule';
+
+
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
+
     ConfigModule.forRoot({
       isGlobal: true,
       load: [appConfig],
@@ -27,8 +35,10 @@ import { AppModules } from './modules';
       }),
     }),
     ...AppModules,
+
+
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

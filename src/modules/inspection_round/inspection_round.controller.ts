@@ -1,0 +1,60 @@
+import { Controller, Post, Body, UseGuards, Patch, Param, Delete, ParseIntPipe, Get, Query } from '@nestjs/common';
+import { InspectionRoundService } from './inspection_round.service';
+import { CreateInspectionRoundDto } from './dto/create-inspection_round.dto';
+import { UpdateInspectionRoundDto } from './dto/update-inspection_round.dto';
+import { GetInspectionRoundsQueryDto } from './dto/get-inspection-rounds-query.dto';
+
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+
+@Controller('inspections')
+@UseGuards(JwtAuthGuard, RolesGuard)
+export class InspectionRoundController {
+  constructor(private readonly inspectionRoundService: InspectionRoundService) { }
+
+  @Get()
+  @Roles('admin', 'student', 'instructor')
+  async findAll(@Query() query: GetInspectionRoundsQueryDto) {
+    return await this.inspectionRoundService.findAll(query);
+  }
+
+  @Post()
+  @Roles('admin')
+  async create(@Body() createInspectionRoundDto: CreateInspectionRoundDto) {
+    return await this.inspectionRoundService.create(createInspectionRoundDto);
+  }
+
+  @Get('active') 
+  async findActive() {
+    const rounds = await this.inspectionRoundService.findAllActive();
+    return rounds[0] || null;
+  }
+
+  @Get(':id')
+  @Roles('admin', 'student', 'instructor')
+  async findOne(@Param('id', ParseIntPipe) id: number) {
+    return await this.inspectionRoundService.findOne(id);
+  }
+
+  @Patch(':id')
+  @Roles('admin')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateInspectionRoundDto: UpdateInspectionRoundDto,
+  ) {
+    return await this.inspectionRoundService.update(id, updateInspectionRoundDto);
+  }
+
+  @Delete(':id')
+  @Roles('admin')
+  async remove(@Param('id', ParseIntPipe) id: number) {
+    return await this.inspectionRoundService.remove(id);
+  }
+
+  @Patch(':id/status')
+  @Roles('admin')
+  async toggleStatus(@Param('id', ParseIntPipe) id: number) {
+    return await this.inspectionRoundService.toggleStatus(id);
+  }
+}

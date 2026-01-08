@@ -1,0 +1,35 @@
+### Test Email Verification OTP Flow
+
+### 1. Request Registration OTP
+POST http://localhost:3000/auth/request-registration-otp
+Content-Type: application/json
+
+{
+  "email": "1163301010101@rmutt.ac.th"
+}
+
+### 2. Verify Registration OTP
+POST http://localhost:3000/auth/verify-registration-otp
+Content-Type: application/json
+
+{
+  "email": "1163301010101@rmutt.ac.th",
+  "otp": "123456"
+}
+
+### 3. Test with invalid email domain (should fail)
+POST http://localhost:3000/auth/request-registration-otp
+Content-Type: application/json
+
+{
+  "email": "test@gmail.com"
+}
+
+### 4. Test with invalid OTP (should fail)
+POST http://localhost:3000/auth/verify-registration-otp
+Content-Type: application/json
+
+{
+  "email": "1163301010101@rmutt.ac.th",
+  "otp": "000000"
+}
