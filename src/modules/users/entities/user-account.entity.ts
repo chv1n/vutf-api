@@ -8,8 +8,8 @@ import {
 } from 'typeorm';
 import { Student } from './student.entity';
 import { Instructor } from './instructor.entity';
-import { ThesisGroup } from 'src/modules/thesis-group/entities/thesis-group.entity';
-import { Submission } from '../../../submissions/entities/submission.entity';
+import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
+import { Submission } from '../../submissions/entities/submission.entity';
 
 @Entity({ name: 'user_account' })
 export class UserAccount {
