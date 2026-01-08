@@ -1,5 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToOne } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToOne, OneToMany } from 'typeorm';
 import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
+import { Submission } from '../../../submissions/entities/submission.entity';
 
 @Entity('thesis')
 export class Thesis {
@@ -26,4 +27,7 @@ export class Thesis {
 
   @OneToOne(() => ThesisGroup, (group) => group.thesis)
   group: ThesisGroup;
+
+  @OneToMany(() => Submission, (submission) => submission.thesis)
+  submissions: Submission[];
 }
