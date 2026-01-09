@@ -6,9 +6,11 @@ import {
   OneToOne,
   JoinColumn,
   OneToMany,
+  ManyToOne,
 } from 'typeorm';
 import { UserAccount } from './user-account.entity';
 import { GroupMember } from '../../group-member/entities/group-member.entity';
+import { ClassSection } from '../../class-sections/entities/class-section.entity';
 
 @Entity({ name: 'student' })
 export class Student {
@@ -44,4 +46,11 @@ export class Student {
 
   @OneToMany(() => GroupMember, (member) => member.student)
   groupMembers: GroupMember[];
+
+  @Column({ nullable: true })
+  section_id: number;
+
+  @ManyToOne(() => ClassSection, (section) => section.students)
+  @JoinColumn({ name: 'section_id' })
+  classSection: ClassSection;
 }

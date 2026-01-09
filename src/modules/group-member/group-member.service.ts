@@ -1,3 +1,4 @@
+// src/modules/group-member/group-member.service.ts
 import {
   HttpException,
   HttpStatus,
@@ -15,7 +16,9 @@ import { UpdateInvitationStatusDto } from './dto/update-invitation-status.dto';
 import { UsersService } from '../users/users.service';
 import { InvitationStatus } from './enum/invitation-status.enum';
 import { GroupMemberRole } from './enum/group-member-role.enum';
-import { ThesisGroup } from '../thesis-group/entities/thesis-group.entity';
+import { ThesisGroup, ThesisGroupStatus } from '../thesis-group/entities/thesis-group.entity';
+import { Not } from 'typeorm';
+import { ThesisStatus } from '../thesis/entities/thesis.entity';
 
 @Injectable()
 export class GroupMemberService {
@@ -108,7 +111,6 @@ export class GroupMemberService {
     dto: UpdateInvitationStatusDto,
   ): Promise<GroupMember> {
     try {
-      // find Student by userId 
       const user = await this.userService.findById(userId);
       if (!user) {
         throw new HttpException('Student not found', HttpStatus.BAD_REQUEST);
@@ -123,16 +125,41 @@ export class GroupMemberService {
         throw new HttpException('Member not found', HttpStatus.BAD_REQUEST);
       }
 
+      if (dto.invitation_status === InvitationStatus.APPROVED) {
+        // ค้นหาการเป็นสมาชิกในกลุ่มอื่นที่ "Active" อยู่
+        const activeMembership = await this.groupMemberRepo.findOne({
+          where: {
+            student_uuid: user.student.student_uuid,
+            invitation_status: InvitationStatus.APPROVED,
+            deleted_at: IsNull(), // ยังไม่ถูกลบออกจากกลุ่ม
+            group: {
+              thesis: {
+                // กลุ่มที่ถือว่า Active คือกลุ่มที่ Thesis ยังไม่ FAILED และยังไม่ถูกลบ
+                status: Not(ThesisStatus.FAILED),
+                delete_at: IsNull(),
+              }
+            }
+          },
+          relations: {
+            group: { thesis: true }
+          }
+        });
+
+        if (activeMembership) {
+          throw new BadRequestException(
+            `คุณเป็นสมาชิกในกลุ่ม "${activeMembership.group.thesis.thesis_name_th}" อยู่แล้ว ไม่สามารถตอบรับคำเชิญอื่นได้`
+          );
+        }
+      }
+
       targetMember.invitation_status = dto.invitation_status;
 
-      // Set approved_at timestamp when approved
       if (dto.invitation_status === InvitationStatus.APPROVED) {
         targetMember.approved_at = new Date();
       }
 
       await this.groupMemberRepo.save(targetMember);
 
-      // Update group status if approved
       if (dto.invitation_status === InvitationStatus.APPROVED) {
         await this.updateGroupStatus(targetMember.group_id);
       }
@@ -179,6 +206,7 @@ export class GroupMemberService {
             group_id: true,
             status: true,
             created_at: true,
+            rejection_reason: true,
             created_by: {
               user_uuid: true,
             },
@@ -188,6 +216,9 @@ export class GroupMemberService {
               thesis_name_th: true,
               thesis_name_en: true,
               graduation_year: true,
+              course_type: true,
+              start_academic_year: true,
+              start_term: true,
             },
             members: {
               member_id: true,
@@ -240,6 +271,20 @@ export class GroupMemberService {
     // Validate owner permission
     await this.validateIsOwner(userId, groupId);
 
+    const group = await this.thesisGroupRepo.findOne({
+      where: { group_id: groupId }
+    });
+
+    if (!group) {
+      throw new NotFoundException('ไม่พบกลุ่มวิทยานิพนธ์');
+    }
+
+    if (group.status === ThesisGroupStatus.APPROVED) {
+      throw new BadRequestException(
+        'ไม่สามารถเชิญสมาชิกเพิ่มได้ เนื่องจากกลุ่มนี้ได้รับการอนุมัติเรียบร้อยแล้ว'
+      );
+    }
+
     // Check if student already in group
     const existing = await this.groupMemberRepo.findOne({
       where: {
@@ -260,7 +305,11 @@ export class GroupMemberService {
       invitation_status: InvitationStatus.PENDING,
     });
 
-    return await this.groupMemberRepo.save(member);
+    const savedMember = await this.groupMemberRepo.save(member);
+
+    await this.updateGroupStatus(groupId);
+
+    return savedMember;
   }
 
   async removeMember(
@@ -270,6 +319,20 @@ export class GroupMemberService {
   ): Promise<{ message: string }> {
     // Validate owner permission
     await this.validateIsOwner(userId, groupId);
+
+    const group = await this.thesisGroupRepo.findOne({
+      where: { group_id: groupId }
+    });
+
+    if (!group) {
+      throw new NotFoundException('ไม่พบกลุ่มวิทยานิพนธ์');
+    }
+
+    if (group.status === ThesisGroupStatus.APPROVED) {
+      throw new BadRequestException(
+        'ไม่สามารถลบสมาชิกได้ เนื่องจากกลุ่มนี้ได้รับการอนุมัติเรียบร้อยแล้ว'
+      );
+    }
 
     const member = await this.groupMemberRepo.findOne({
       where: {
@@ -290,27 +353,40 @@ export class GroupMemberService {
 
     // Soft delete
     await this.groupMemberRepo.softRemove(member);
+    await this.updateGroupStatus(groupId);
     return { message: 'Member removed successfully' };
   }
 
   // ============ Group Status Management ============
 
-  async updateGroupStatus(groupId: string): Promise<void> {
-    // Get all non-deleted members
-    const members = await this.groupMemberRepo.find({
-      where: {
-        group_id: groupId,
-        deleted_at: IsNull(),
-      },
+  async updateGroupStatus(groupId: string, manager?: EntityManager): Promise<void> {
+    const groupMemberRepo = manager ? manager.getRepository(GroupMember) : this.groupMemberRepo;
+    const thesisGroupRepo = manager ? manager.getRepository(ThesisGroup) : this.thesisGroupRepo;
+
+    const members = await groupMemberRepo.find({
+      where: { group_id: groupId, deleted_at: IsNull() },
     });
 
-    // Check if all members are approved
+    if (members.length === 0) return;
+
     const allApproved = members.every(
       (m) => m.invitation_status === InvitationStatus.APPROVED,
     );
 
-    // Update group status
-    await this.thesisGroupRepo.update(groupId, { status: allApproved });
+    const group = await thesisGroupRepo.findOne({ where: { group_id: groupId } });
+    if (!group) return;
+
+    // กฎ: ถ้าแอดมินอนุมัติไปแล้ว (APPROVED) ห้ามเปลี่ยนสถานะกลับอัตโนมัติ
+    if (group.status === ThesisGroupStatus.APPROVED) return;
+
+    // กำหนดสถานะใหม่: ถ้าทุกคนตอบรับครบ ไม่ว่าจะมาจาก incomplete หรือ rejected ให้เป็น PENDING
+    const newStatus = allApproved ? ThesisGroupStatus.PENDING : ThesisGroupStatus.INCOMPLETE;
+
+    // ทำการอัปเดตสถานะ (และควรล้าง rejection_reason ออกที่นี่เลยเพื่อความชัวร์)
+    await thesisGroupRepo.update(groupId, {
+      status: newStatus,
+      rejection_reason: allApproved ? null : group.rejection_reason
+    });
   }
 
   // ============ Validation Methods ============
