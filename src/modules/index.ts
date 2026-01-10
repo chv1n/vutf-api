@@ -13,6 +13,9 @@ import { ThesisModule } from './thesis/thesis.module';
 import { GroupMemberModule } from './group-member/group-member.module';
 import { AdvisorAssignmentModule } from './advisor-assignment/advisor-assignment.module';
 
+import { ThesisTopicModule } from './thesis-topic/thesis-topic.module';
+import { ClassSectionsModule } from './class-sections/class-sections.module';
+
 
 export const AppModules = [
     SubmissionsModule,
@@ -26,7 +29,8 @@ export const AppModules = [
 
     AnnouncementsModule,
 
-
+    ThesisTopicModule,
+    ClassSectionsModule,
 
 
 

@@ -1,3 +1,4 @@
+// src/modules/advisor-assignment/advisor-assignment.service.ts
 import {
   Injectable,
   BadRequestException,
@@ -13,6 +14,8 @@ import { AdvisorAssignment } from './entities/advisor-assignment.entity';
 import { AdvisorRole } from './enum/advisor-role.enum';
 import { GroupMember } from '../group-member/entities/group-member.entity';
 import { GroupMemberRole } from '../group-member/enum/group-member-role.enum';
+import { ThesisGroup } from '../thesis-group/entities/thesis-group.entity';
+import { GroupMemberService } from '../group-member/group-member.service';
 
 @Injectable()
 export class AdvisorAssignmentService {
@@ -21,6 +24,9 @@ export class AdvisorAssignmentService {
     private readonly advisorRepo: Repository<AdvisorAssignment>,
     @InjectRepository(GroupMember)
     private readonly groupMemberRepo: Repository<GroupMember>,
+    @InjectRepository(ThesisGroup)
+    private readonly thesisGroupRepo: Repository<ThesisGroup>,
+    private readonly groupMemberService: GroupMemberService,
   ) { }
 
   // ============ Transaction-based method (used in createFullThesis) ============
@@ -72,7 +78,12 @@ export class AdvisorAssignmentService {
       group_id: groupId,
     });
 
-    return await this.advisorRepo.save(advisor);
+    const savedAdvisor = await this.advisorRepo.save(advisor);
+
+    // ล้างเหตุผลการปฏิเสธและอัปเดตสถานะกลุ่ม
+    await this.clearRejectionAndUpdateStatus(groupId);
+
+    return savedAdvisor;
   }
 
   async updateAdvisor(
@@ -102,7 +113,12 @@ export class AdvisorAssignmentService {
     }
 
     Object.assign(advisor, dto);
-    return await this.advisorRepo.save(advisor);
+    const updatedAdvisor = await this.advisorRepo.save(advisor);
+
+    // ล้างเหตุผลการปฏิเสธและอัปเดตสถานะกลุ่ม
+    await this.clearRejectionAndUpdateStatus(groupId);
+
+    return updatedAdvisor;
   }
 
   async removeAdvisor(
@@ -127,7 +143,27 @@ export class AdvisorAssignmentService {
 
     // Soft delete
     await this.advisorRepo.softRemove(advisor);
+
+    // ล้างเหตุผลการปฏิเสธและอัปเดตสถานะกลุ่ม
+    await this.clearRejectionAndUpdateStatus(groupId);
+
     return { message: 'Advisor removed successfully' };
+  }
+
+  // ============ Helper methods for Rejection & Status ============
+
+  /**
+   * ล้าง rejection_reason และอัปเดตสถานะกลุ่มกลับเป็น Pending/Incomplete
+   */
+  private async clearRejectionAndUpdateStatus(groupId: string): Promise<void> {
+    // 1. ล้างเหตุผลการปฏิเสธ และล้างวันที่อนุมัติเก่า (ถ้ามี)
+    await this.thesisGroupRepo.update(groupId, {
+      rejection_reason: null,
+      approved_at: null,
+    });
+
+    // 2. เรียกฟังก์ชันตรวจสอบสมาชิกเพื่อเปลี่ยนสถานะกลุ่มโดยอัตโนมัติ
+    await this.groupMemberService.updateGroupStatus(groupId);
   }
 
   // ============ Validation methods ============
