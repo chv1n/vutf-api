@@ -13,8 +13,10 @@ import { ThesisModule } from './thesis/thesis.module';
 import { GroupMemberModule } from './group-member/group-member.module';
 import { AdvisorAssignmentModule } from './advisor-assignment/advisor-assignment.module';
 
+import { StorageModule } from '../common/modules/storage.module';
 
 export const AppModules = [
+    StorageModule,
     SubmissionsModule,
     UsersModule,
     StudentModule,
