@@ -299,6 +299,7 @@ export class StudentService {
         first_name: dto.firstName,
         last_name: dto.lastName,
         phone: dto.phone,
+        section_id: dto.section_id,
       });
 
       await queryRunner.manager.save(student);

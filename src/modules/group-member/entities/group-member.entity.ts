@@ -1,3 +1,4 @@
+// src/modules/group-member/entities/group-member.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
