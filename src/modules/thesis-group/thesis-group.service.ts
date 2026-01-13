@@ -14,7 +14,6 @@ import { UsersService } from '../users/users.service';
 import { GroupMemberRole } from '../group-member/enum/group-member-role.enum';
 import { InvitationStatus } from '../group-member/enum/invitation-status.enum';
 import { UpdateThesisDto } from '../thesis/dto/update-thesis.dto';
-import { AdminApproveGroupDto } from './dto/admin-approve-group.dto';
 
 @Injectable()
 export class ThesisGroupService {
@@ -95,6 +94,7 @@ export class ThesisGroupService {
         members: {
           student_uuid: studentUuid,
           deleted_at: IsNull(),
+          invitation_status: Not(InvitationStatus.REJECTED),
         },
         thesis: {
           delete_at: IsNull(),
@@ -105,8 +105,13 @@ export class ThesisGroupService {
     });
 
     if (existingActiveGroup) {
+      const memberInfo = existingActiveGroup.members.find(m => m.student_uuid === studentUuid);
+      const statusMsg = memberInfo?.invitation_status === InvitationStatus.PENDING 
+        ? 'กำลังรอการตอบรับ' 
+        : 'เป็นสมาชิกอยู่';
+
       throw new ConflictException(
-        `คุณมีกลุ่มโครงงาน "${existingActiveGroup.thesis.thesis_name_th}" ที่กำลังดำเนินการอยู่แล้ว ไม่สามารถสร้างกลุ่มใหม่ได้`,
+        `คุณมีกลุ่มโครงงาน "${existingActiveGroup.thesis.thesis_name_th}" ที่${statusMsg} ไม่สามารถสร้างกลุ่มใหม่ได้`,
       );
     }
   }
@@ -304,59 +309,4 @@ export class ThesisGroupService {
     return group;
   }
 
-  async adminUpdateStatus(
-    groupId: string,
-    dto: AdminApproveGroupDto,
-  ): Promise<ThesisGroup> {
-    // ดึงข้อมูลกลุ่มพร้อมสมาชิก
-    const group = await this.thesisGroupRepository.findOne({
-      where: { group_id: groupId },
-      relations: ['members'], // ต้องโหลด members มาเช็ค
-    });
-
-    if (!group) {
-      throw new NotFoundException('ไม่พบข้อมูลกลุ่มวิทยานิพนธ์');
-    }
-
-    // ตรวจสอบว่าสมาชิกทุกคนในกลุ่มตอบรับ (APPROVED) ครบหรือยัง
-    const allMembersAccepted = group.members.every(
-      (m) => m.invitation_status === 'approved' // เช็คจาก InvitationStatus.APPROVED
-    );
-
-    if (!allMembersAccepted) {
-      throw new BadRequestException('ไม่สามารถดำเนินการได้ เนื่องจากสมาชิกในกลุ่มยังตอบรับคำเชิญไม่ครบ');
-    }
-
-    // ถ้าครบแล้วจึงทำการ Update สถานะตามปกติ
-    group.status = dto.status;
-
-    if (dto.status === ThesisGroupStatus.APPROVED) {
-      group.approved_at = new Date();
-      group.rejection_reason = null;
-    } else if (dto.status === ThesisGroupStatus.REJECTED) {
-      group.approved_at = null;
-      group.rejection_reason = dto.rejection_reason || 'ไม่ระบุเหตุผล';
-    }
-
-    return await this.thesisGroupRepository.save(group);
-  }
-
-  async getGroupsForAdmin() {
-    const groups = await this.thesisGroupRepository.find({
-      relations: ['members', 'thesis'],
-      where: {
-        status: ThesisGroupStatus.PENDING // ดึงกลุ่มที่สถานะยังเป็นรออนุมัติ
-      }
-    });
-
-    return groups.map(group => {
-      // เช็คว่าทุกคนตอบรับหรือยัง
-      const isReady = group.members.every(m => m.invitation_status === 'approved');
-
-      return {
-        ...group,
-        isReadyForAdminAction: isReady // ส่ง flag นี้ไปให้ Frontend เพื่อเปิด/ปิดปุ่มอนุมัติ
-      };
-    });
-  }
 }
