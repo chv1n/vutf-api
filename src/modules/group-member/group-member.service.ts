@@ -160,7 +160,10 @@ export class GroupMemberService {
 
       await this.groupMemberRepo.save(targetMember);
 
-      if (dto.invitation_status === InvitationStatus.APPROVED) {
+      if (
+        dto.invitation_status === InvitationStatus.APPROVED ||
+        dto.invitation_status === InvitationStatus.REJECTED
+      ) {
         await this.updateGroupStatus(targetMember.group_id);
       }
 
@@ -251,8 +254,20 @@ export class GroupMemberService {
         return []; // ยังไม่มี group
       }
 
-      // ดึงเฉพาะ group objects ออกมา
-      return myMemberships.map((membership) => membership.group);
+      return myMemberships.map((membership) => {
+        const group = membership.group;
+
+        // คำนวณจำนวนสมาชิก โดยตัดคนที่ Rejected ออก
+        const activeMembersCount = group.members.filter(
+          (m) => m.invitation_status !== InvitationStatus.REJECTED
+        ).length;
+
+        return {
+          ...group,
+          totalMemberCount: activeMembersCount,
+        };
+      });
+
     } catch (error) {
       throw new HttpException(
         error.message || 'Get my group failed',
@@ -363,28 +378,42 @@ export class GroupMemberService {
     const groupMemberRepo = manager ? manager.getRepository(GroupMember) : this.groupMemberRepo;
     const thesisGroupRepo = manager ? manager.getRepository(ThesisGroup) : this.thesisGroupRepo;
 
+    // 1. ดึงสมาชิกทั้งหมดที่ยังไม่ถูกลบ (รวม PENDING, APPROVED, REJECTED)
     const members = await groupMemberRepo.find({
-      where: { group_id: groupId, deleted_at: IsNull() },
+      where: {
+        group_id: groupId,
+        deleted_at: IsNull()
+      },
     });
 
     if (members.length === 0) return;
 
-    const allApproved = members.every(
+    // 2. กรองเอาเฉพาะคนที่ "ไม่ได้ปฏิเสธ" (Non-rejected members)
+    // เพราะคนที่ปฏิเสธไปแล้ว ถือว่าออกจากวงโคจรการสร้างกลุ่มนี้ไปแล้ว
+    const activeCandidates = members.filter(
+      (m) => m.invitation_status !== InvitationStatus.REJECTED
+    );
+
+    // 3. เช็คว่าคนที่เหลืออยู่ (Active Candidates) ตอบรับครบทุกคนแล้วหรือยัง?
+    // เช่น ถ้ามี Owner(Approved) + นาย A(Rejected) -> activeCandidates เหลือแค่ Owner -> allApproved = true
+    const allApproved = activeCandidates.length > 0 && activeCandidates.every(
       (m) => m.invitation_status === InvitationStatus.APPROVED,
     );
 
     const group = await thesisGroupRepo.findOne({ where: { group_id: groupId } });
     if (!group) return;
 
-    // กฎ: ถ้าแอดมินอนุมัติไปแล้ว (APPROVED) ห้ามเปลี่ยนสถานะกลับอัตโนมัติ
+    // ห้ามเปลี่ยนสถานะถ้า Admin อนุมัติไปแล้ว
     if (group.status === ThesisGroupStatus.APPROVED) return;
 
-    // กำหนดสถานะใหม่: ถ้าทุกคนตอบรับครบ ไม่ว่าจะมาจาก incomplete หรือ rejected ให้เป็น PENDING
+    // 4. Update Status
+    // ถ้าทุกคนที่เหลืออยู่ Approved หมดแล้ว -> PENDING
+    // ถ้ายังมีใครสักคน Pending อยู่ -> INCOMPLETE
     const newStatus = allApproved ? ThesisGroupStatus.PENDING : ThesisGroupStatus.INCOMPLETE;
 
-    // ทำการอัปเดตสถานะ (และควรล้าง rejection_reason ออกที่นี่เลยเพื่อความชัวร์)
     await thesisGroupRepo.update(groupId, {
       status: newStatus,
+      // ถ้าสถานะกลายเป็น Pending ให้ลบเหตุผลการปฏิเสธเก่าทิ้ง (ถ้ามี)
       rejection_reason: allApproved ? null : group.rejection_reason
     });
   }

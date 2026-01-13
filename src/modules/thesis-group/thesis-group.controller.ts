@@ -4,7 +4,6 @@ import { ThesisGroupService } from './thesis-group.service';
 import { CreateThesisGroupDto } from './dto/create-thesis-group.dto';
 import { UpdateThesisDto } from '../thesis/dto/update-thesis.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { AdminApproveGroupDto } from './dto/admin-approve-group.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -35,12 +34,4 @@ export class ThesisGroupController {
     return this.thesisGroupService.getThesisGroupById(groupId);
   }
 
-  @Patch(':id/admin-status')
-  @Roles('admin')
-  async adminUpdateStatus(
-    @Param('id') id: string,
-    @Body() dto: AdminApproveGroupDto,
-  ) {
-    return await this.thesisGroupService.adminUpdateStatus(id, dto);
-  }
 }
