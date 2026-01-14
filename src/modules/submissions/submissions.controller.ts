@@ -1,7 +1,9 @@
+// src/modules/submissions/submissions.controller.ts
 import {
   Controller,
   Get,
   Post,
+  Patch,
   Param,
   Req,
   Body,
@@ -17,6 +19,8 @@ import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Query } from '@nestjs/common';
+import { GetSubmissionsFilterDto } from './dto/get-submissions-filter.dto';
 
 @Controller('submissions')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -71,5 +75,31 @@ export class SubmissionsController {
   @Roles('student', 'instructor', 'admin')
   async getFileUrl(@Param('id', ParseIntPipe) id: number) {
     return this.submissionsService.getFileUrl(id);
+  }
+
+  /**
+   * Get ALL submissions
+   * GET /submissions
+   */
+  @Get()
+  @Roles('admin', 'instructor')
+  async getAllSubmissions(@Query() filterDto: GetSubmissionsFilterDto) {
+    return this.submissionsService.getAllSubmissions(filterDto);
+  }
+
+  @Patch(':id/comment')
+  @Roles('instructor', 'admin')
+  async updateComment(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('comment') comment: string,
+  ) {
+    return this.submissionsService.updateComment(id, comment);
+  }
+
+  @Post(':id/verify')
+  @Roles('admin', 'instructor')
+  async verifySubmission(@Param('id', ParseIntPipe) id: number) {
+    // เรียก Logic การส่งตรวจ หรือ update status
+    return this.submissionsService.sendToVerificationSystem(id);
   }
 }

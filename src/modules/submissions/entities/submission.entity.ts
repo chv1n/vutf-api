@@ -5,12 +5,14 @@ import {
     CreateDateColumn,
     ManyToOne,
     JoinColumn,
+    OneToOne,
 } from 'typeorm';
 import { Thesis } from '../../thesis/entities/thesis.entity';
 import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
 import { UserAccount } from '../../users/entities/user-account.entity';
 import { InspectionRound } from '../../inspection_round/entities/inspection_round.entity';
 import { SubmissionStatus } from '../enum/submission-status.enum';
+import { Student } from '../../users/entities/student.entity';
 
 
 
@@ -74,5 +76,8 @@ export class Submission {
     @ManyToOne(() => InspectionRound, (inspection) => inspection.submissions)
     @JoinColumn({ name: 'inspection_id' })
     inspectionRound: InspectionRound;
+
+    @OneToOne(() => Student, (student) => student.user)
+    student: Student;
 }
 

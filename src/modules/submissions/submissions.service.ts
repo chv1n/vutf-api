@@ -1,3 +1,4 @@
+// src/modules/submissions/submissions.service.ts
 import {
   Injectable,
   Inject,
@@ -20,6 +21,8 @@ import { GroupMemberRole } from '../group-member/enum/group-member-role.enum';
 import { InvitationStatus } from '../group-member/enum/invitation-status.enum';
 import type { IStorageService } from '../../common/interfaces/storage.interface';
 import { STORAGE_SERVICE } from '../../common/interfaces/storage.interface';
+import { Brackets } from 'typeorm';
+import { GetSubmissionsFilterDto } from './dto/get-submissions-filter.dto';
 
 @Injectable()
 export class SubmissionsService {
@@ -81,9 +84,9 @@ export class SubmissionsService {
       );
     }
 
- 
-    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    file.originalname = originalName;
+
+    // const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    // file.originalname = originalName;
 
     // 6. Upload file to storage
     const storagePath = `submissions/${dto.groupId}/${dto.inspectionId}`;
@@ -112,7 +115,8 @@ export class SubmissionsService {
         });
       }
 
-      submission.fileName = uploadResult.fileName;
+      submission.fileName = file.originalname;
+      // submission.fileName = uploadResult.fileName;
       submission.fileUrl = uploadResult.url;
       submission.fileSize = uploadResult.fileSize;
       submission.mimeType = uploadResult.mimeType;
@@ -154,16 +158,35 @@ export class SubmissionsService {
   }
 
   /**
-   * Get submission by ID
+   * Get submission by ID (Detailed View)
    */
   async getSubmissionById(submissionId: number): Promise<SubmissionResponseDto> {
     const submission = await this.submissionRepo.findOne({
       where: { submissionId },
-      relations: ['group', 'inspectionRound', 'submitter'],
+      relations: [
+        'inspectionRound',          // ข้อมูลรอบ
+        'submitter',                // User คนส่ง
+        'submitter.student',        // Student คนส่ง
+        'thesis',                   // ข้อมูลโครงงาน
+        'group',                    // ข้อมูลกลุ่ม
+        'group.members',           
+        'group.members.student',
+        'group.advisor', 
+        'group.advisor.instructor', 
+      ],
     });
 
     if (!submission) {
       throw new NotFoundException('Submission not found');
+    }
+
+    // Generate Signed URL ใหม่ (กัน Link Expired)
+    if (submission.storagePath) {
+      try {
+        submission.fileUrl = await this.storageService.getFileUrl(submission.storagePath);
+      } catch (e) {
+        this.logger.error(`Failed to sign url for ${submission.storagePath}`, e);
+      }
     }
 
     return SubmissionResponseDto.fromEntity(submission);
@@ -279,5 +302,189 @@ export class SubmissionsService {
     }
 
     return round;
+  }
+
+  /**
+   * Get ALL submissions with Pagination & Filters
+   */
+  async getAllSubmissions(filterDto: GetSubmissionsFilterDto) {
+    const {
+      search,
+      round,
+      term,
+      academicYear,
+      courseType,
+      status,
+      page = 1,
+      limit = 10
+    } = filterDto;
+
+    const skip = (page - 1) * limit;
+
+    const query = this.submissionRepo.createQueryBuilder('submission');
+
+    query.leftJoinAndSelect('submission.thesis', 'thesis')
+      .leftJoinAndSelect('submission.inspectionRound', 'inspectionRound')
+      .leftJoinAndSelect('submission.submitter', 'submitter')
+      .leftJoinAndSelect('submitter.student', 'student')
+      .leftJoinAndSelect('submission.group', 'group');
+
+    // --- Search Logic ---
+    if (search) {
+      query.andWhere(
+        new Brackets((qb) => {
+          qb.where('thesis.thesis_code LIKE :search', { search: `%${search}%` })
+            .orWhere('thesis.thesis_name_th LIKE :search', { search: `%${search}%` })
+            .orWhere('thesis.thesis_name_en LIKE :search', { search: `%${search}%` })
+            .orWhere('submitter.email LIKE :search', { search: `%${search}%` })
+            .orWhere('student.first_name LIKE :search', { search: `%${search}%` })
+            .orWhere('student.last_name LIKE :search', { search: `%${search}%` });
+        }),
+      );
+    }
+
+    // --- Filter Logic ---
+    if (round) query.andWhere('inspectionRound.round_number = :round', { round });
+    if (term) query.andWhere('inspectionRound.term = :term', { term });
+    if (academicYear) query.andWhere('inspectionRound.academic_year = :year', { year: academicYear });
+
+    // Filter Course Type
+    if (courseType && courseType !== 'ALL') {
+      query.andWhere('inspectionRound.course_type = :courseType', { courseType });
+    }
+
+    // Filter Status
+    if (status) {
+      query.andWhere('submission.status = :status', { status });
+    }
+
+    // --- Pagination Logic ---
+    query.orderBy('submission.submittedAt', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const [result, total] = await query.getManyAndCount();
+
+    // Transform Data with Fresh URLs
+    const data = await Promise.all(result.map(async (item) => {
+      const student = item.submitter.student;
+      const displayName = student
+        ? `${student.first_name} ${student.last_name}`.trim()
+        : item.submitter.email;
+
+      // Generate New Signed URL using storagePath
+      let signedUrl = item.fileUrl; // Fallback to old url
+      if (item.storagePath) {
+        try {
+          // ใช้ storagePath (key ใน MinIO) ในการขอ Link ใหม่
+          signedUrl = await this.storageService.getFileUrl(item.storagePath);
+        } catch (error) {
+          this.logger.error(`Failed to generate signed url for ${item.storagePath}`, error);
+        }
+      }
+
+      return {
+        id: item.submissionId,
+
+        file: {
+          name: item.fileName, // ชื่อไฟล์ดั้งเดิม (สำหรับแสดงผล)
+          url: signedUrl,      // ลิงก์ที่ใช้งานได้จริง (ไม่ Expire)
+          type: item.mimeType,
+          size: this.formatBytes(item.fileSize),
+        },
+
+        uploadedBy: {
+          id: item.submitter.user_uuid,
+          name: displayName,
+          avatar: null,
+        },
+
+        project: {
+          nameTh: item.thesis.thesis_name_th,
+          nameEn: item.thesis.thesis_name_en,
+          code: item.thesis.thesis_code,
+        },
+
+        inspectionRound: {
+          id: item.inspectionRound.inspectionId,
+          title: item.inspectionRound.title,
+          description: item.inspectionRound.description,
+          startDate: item.inspectionRound.startDate,
+          endDate: item.inspectionRound.endDate,
+          courseType: item.inspectionRound.courseType
+        },
+
+        submittedAt: item.submittedAt,
+        status: item.status,
+        canVerify: item.status === 'PENDING',
+      };
+    }));
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        lastPage: Math.ceil(total / limit),
+        limit,
+      },
+    };
+  }
+
+  // Helper function แปลงขนาดไฟล์
+  private formatBytes(bytes: number, decimals = 2) {
+    if (!bytes) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  }
+
+  async updateComment(submissionId: number, comment: string) {
+    const submission = await this.submissionRepo.findOne({
+      where: { submissionId },
+    });
+
+    if (!submission) {
+      throw new NotFoundException('Submission not found');
+    }
+
+    submission.comment = comment;
+    return this.submissionRepo.save(submission);
+  }
+
+  /**
+   * ส่งข้อมูลไปให้ระบบตรวจ (Verification System)
+   * Triggered by: ปุ่มในหน้า UI
+   */
+  async sendToVerificationSystem(submissionId: number) {
+    // 1. หา Submission
+    const submission = await this.submissionRepo.findOne({
+      where: { submissionId },
+      relations: ['thesis', 'group'],
+    });
+
+    if (!submission) {
+      throw new NotFoundException('Submission not found');
+    }
+
+    // 2. (Optional) เช็คสถานะก่อนส่งตรวจ
+    // if (submission.status !== SubmissionStatus.PENDING) {
+    //   throw new BadRequestException('Only PENDING submissions can be verified');
+    // }
+
+    // 3. TODO: ใส่ Logic การส่งไปตรวจที่นี่ 
+    // เช่น ยิง API ไปหา Python Service, หรือ Kafka, หรือแค่เปลี่ยน Status รอตรวจ
+    this.logger.log(`Sending submission ID ${submissionId} to verification system...`);
+
+    // ตัวอย่าง: อัปเดตเวลาว่ากดส่งตรวจเมื่อไหร่
+    // submission.verifiedAt = new Date(); 
+    // await this.submissionRepo.save(submission);
+
+    return {
+      success: true,
+      message: `Submission ${submissionId} has been sent to verification queue.`,
+    };
   }
 }
