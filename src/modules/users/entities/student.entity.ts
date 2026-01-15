@@ -52,5 +52,5 @@ export class Student {
 
   @ManyToOne(() => ClassSection, (section) => section.students)
   @JoinColumn({ name: 'section_id' })
-  classSection: ClassSection;
+  section: ClassSection;
 }

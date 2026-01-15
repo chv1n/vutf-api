@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+// src/modules/class-sections/class-sections.service.ts
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, Like, Not } from 'typeorm';
 import { ClassSection } from './entities/class-section.entity';
 import { CreateClassSectionDto } from './dto/create-class-section.dto';
 import { UpdateClassSectionDto } from './dto/update-class-section.dto';
@@ -11,12 +12,14 @@ export class ClassSectionsService {
   constructor(
     @InjectRepository(ClassSection)
     private readonly repo: Repository<ClassSection>,
-  ) {}
+  ) { }
 
   // ---------------------------------------------------------------------------
   // 1. Create
   // ---------------------------------------------------------------------------
   async create(dto: CreateClassSectionDto) {
+    // ตรวจสอบข้อมูลซ้ำก่อนสร้าง
+    await this.checkDuplicate(dto.academic_year, dto.term, dto.section_name);
     const section = this.repo.create(dto);
     return await this.repo.save(section);
   }
@@ -68,6 +71,14 @@ export class ClassSectionsService {
       throw new NotFoundException(`Class section with ID ${id} not found`);
     }
 
+    // เตรียมค่าที่จะถูกบันทึกจริง (ถ้า dto ไม่ส่งมา ให้ใช้ค่าเดิม)
+    const yearToCheck = dto.academic_year ?? section.academic_year;
+    const termToCheck = dto.term ?? section.term;
+    const nameToCheck = dto.section_name ?? section.section_name;
+
+    // ตรวจสอบข้อมูลซ้ำ (ส่ง id ไปด้วยเพื่อบอกว่า "ยกเว้นตัวเอง")
+    await this.checkDuplicate(yearToCheck, termToCheck, nameToCheck, id);
+
     this.repo.merge(section, dto);
     return await this.repo.save(section);
   }
@@ -87,12 +98,13 @@ export class ClassSectionsService {
   }
 
   // ---------------------------------------------------------------------------
-  // 🛠 Helper: คำนวณเทอมปัจจุบัน (Logic มทร.ธัญบุรี โดยประมาณ)
+  // 🛠 Helper: คำนวณเทอมปัจจุบัน (Logic มทร.ธัญบุรี + แปลงเป็น พ.ศ.)
   // ---------------------------------------------------------------------------
   getCurrentSemester(): { academic_year: number; term: string } {
     const now = new Date();
     const month = now.getMonth() + 1; // 1-12
-    const year = now.getFullYear();
+
+    const year = now.getFullYear() + 543;
 
     let academic_year = year;
     let term = '1';
@@ -109,10 +121,42 @@ export class ClassSectionsService {
       else academic_year = year;
     } else {
       // เม.ย. - พ.ค. -> Summer
-      term = '3'; 
+      term = '3';
       academic_year = year - 1;
     }
 
     return { academic_year, term };
   }
+
+  // ---------------------------------------------------------------------------
+  // 🛠 Helper: ตรวจสอบว่ามีกลุ่มเรียนนี้อยู่แล้วหรือไม่
+  // ---------------------------------------------------------------------------
+  private async checkDuplicate(
+    year: number,
+    term: string,
+    name: string,
+    excludeId?: number
+  ) {
+    const whereCondition: any = {
+      academic_year: year,
+      term: term,
+      section_name: name,
+    };
+
+    // กรณี Update: ต้องไม่นับตัวเอง (ถ้าแก้ชื่อ แต่ไม่ได้ไปซ้ำคนอื่น ก็ต้องผ่าน)
+    if (excludeId) {
+      whereCondition.section_id = Not(excludeId);
+    }
+
+    const existingSection = await this.repo.findOne({
+      where: whereCondition,
+    });
+
+    if (existingSection) {
+      throw new ConflictException(
+        `กลุ่มเรียน ${name} (เทอม ${term}/${year}) มีอยู่ในระบบแล้ว`
+      );
+    }
+  }
+  
 }
