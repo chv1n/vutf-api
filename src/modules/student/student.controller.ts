@@ -19,7 +19,6 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('students')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class StudentController {
   constructor(private readonly studentService: StudentService) { }
 
@@ -32,6 +31,7 @@ export class StudentController {
   }
 
   @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Post('invite')
   @HttpCode(HttpStatus.OK)
   async inviteStudents(@Body() dto: InviteStudentsDto) {

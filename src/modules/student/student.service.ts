@@ -1,3 +1,4 @@
+// src/modules/student/student.service.ts
 import {
   Injectable,
   ConflictException,
@@ -120,6 +121,7 @@ export class StudentService {
       firstName: string;
       lastName: string;
       phone: string;
+      sectionId: number;
     },
   ): Promise<UserAccount> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -162,6 +164,7 @@ export class StudentService {
         existingStudent.last_name = studentData.lastName;
         existingStudent.phone = studentData.phone;
         existingStudent.student_code = formattedStudentCode;
+        existingStudent.section_id = studentData.sectionId;
         await queryRunner.manager.save(existingStudent);
       } else {
         const student = queryRunner.manager.create(Student, {
@@ -171,6 +174,7 @@ export class StudentService {
           last_name: studentData.lastName,
           phone: studentData.phone,
           student_code: formattedStudentCode,
+          section_id: studentData.sectionId,
         });
         await queryRunner.manager.save(student);
       }

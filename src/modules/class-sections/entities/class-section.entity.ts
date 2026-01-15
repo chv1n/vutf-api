@@ -1,7 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany, DeleteDateColumn } from 'typeorm';
+// src/modules/class-sections/entities/class-section.entity.ts
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany, DeleteDateColumn, Unique } from 'typeorm';
 import { Student } from '../../users/entities/student.entity';
 
 @Entity('class_sections')
+@Unique(['academic_year', 'term', 'section_name'])
 export class ClassSection {
   @PrimaryGeneratedColumn()
   section_id: number;
@@ -21,6 +23,6 @@ export class ClassSection {
   @CreateDateColumn()
   created_at: Date;
 
-  @OneToMany(() => Student, (student) => student.classSection)
+  @OneToMany(() => Student, (student) => student.section)
   students: Student[];
 }
