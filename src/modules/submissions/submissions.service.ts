@@ -154,7 +154,21 @@ export class SubmissionsService {
       order: { submittedAt: 'DESC' },
     });
 
-    return submissions.map(SubmissionResponseDto.fromEntity);
+    // Refresh presigned URLs for all submissions
+    const results = await Promise.all(
+      submissions.map(async (submission) => {
+        if (submission.storagePath) {
+          try {
+            submission.fileUrl = await this.storageService.getFileUrl(submission.storagePath);
+          } catch (error) {
+            this.logger.warn(`Failed to refresh URL for ${submission.storagePath}: ${error.message}`);
+          }
+        }
+        return SubmissionResponseDto.fromEntity(submission);
+      })
+    );
+
+    return results;
   }
 
   /**
@@ -169,10 +183,10 @@ export class SubmissionsService {
         'submitter.student',        // Student คนส่ง
         'thesis',                   // ข้อมูลโครงงาน
         'group',                    // ข้อมูลกลุ่ม
-        'group.members',           
+        'group.members',
         'group.members.student',
-        'group.advisor', 
-        'group.advisor.instructor', 
+        'group.advisor',
+        'group.advisor.instructor',
       ],
     });
 
