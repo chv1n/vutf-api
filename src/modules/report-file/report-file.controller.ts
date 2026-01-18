@@ -44,32 +44,18 @@ export class ReportFileController {
    * Send a submission for PDF verification
    * POST /report-file/verify/:submissionId
    */
-  @Post('verify/:submissionId')
-  @HttpCode(HttpStatus.ACCEPTED)
-  async verifySubmission(
-    @Param('submissionId', ParseIntPipe) submissionId: number,
-  ) {
-    return this.verificationService.sendToVerification(submissionId);
-  }
+  // @Post('verify/:submissionId')
+  // @HttpCode(HttpStatus.ACCEPTED)
+  // async verifySubmission(
+  //   @Param('submissionId', ParseIntPipe) submissionId: number,
+  // ) {
+  //   return this.verificationService.sendToVerification(submissionId);
+  // }
 
   @Post('verify-batch')
-  // @HttpCode(HttpStatus.ACCEPTED)
-  async verifyBatch(@Body() dto: any) {
-    console.log("in verify batch dto : ", dto);
-
-    const jobs = await Promise.all(
-      dto.submissionIds.map((id) =>
-        this.verificationService
-          .sendToVerification(id)
-          .catch((error) => ({
-            success: false,
-            submission_id: id,
-            error: error.message,
-          })),
-      ),
-    );
-
-    return { jobs };
+  @HttpCode(HttpStatus.ACCEPTED)
+  async verifyBatch(@Body() dto: VerifyBatchDto) {
+    return this.verificationService.sendBatchToVerification(dto.submissionIds);
   }
 
 }

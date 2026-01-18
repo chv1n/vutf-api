@@ -27,7 +27,6 @@ export class VerificationService {
      * Fetches config from Redis (fast path) and sends job to RabbitMQ
      */
     async sendToVerification(submissionId: number): Promise<{
-        success: boolean;
         job_id: string;
         message: string;
     }> {
@@ -61,9 +60,24 @@ export class VerificationService {
         this.logger.log(`Verification job ${jobId} sent for submission ${submissionId}`);
 
         return {
-            success: true,
             job_id: jobId,
             message: `Submission ${submissionId} has been sent to verification queue.`,
         };
+    }
+
+    /**
+     * Send multiple submissions for verification (batch)
+     */
+    async sendBatchToVerification(submissionIds: number[]) {
+        const jobs = await Promise.all(
+            submissionIds.map((id) =>
+                this.sendToVerification(id).catch((error) => ({
+                    success: false,
+                    submission_id: id,
+                    error: error.message,
+                })),
+            ),
+        );
+        return { jobs };
     }
 }
