@@ -2,102 +2,123 @@
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { DocConfig } from './entities/doc-config.entity';
 import { CreateDocConfigDto } from './dto/create-doc-config.dto';
 import { UpdateDocConfigDto } from './dto/update-doc-config.dto';
+import { RedisService } from '../../shared/services/redis.service';
+import type { DocumentConfigData } from './interface/doc-config.interface';
+
+const REDIS_KEY = 'doc-config';
 
 @Injectable()
-export class DocConfigService {
+export class DocConfigService implements OnModuleInit {
   constructor(
     @InjectRepository(DocConfig)
     private readonly docConfigRepository: Repository<DocConfig>,
+    private readonly redisService: RedisService,
   ) { }
 
-  async create(createDocConfigDto: CreateDocConfigDto): Promise<DocConfig> {
-    // Check if name already exists
-    const existing = await this.docConfigRepository.findOne({
-      where: { name: createDocConfigDto.name },
-    });
+  // Sync config to Redis on startup
+  async onModuleInit() {
+    await this.syncToRedis();
+  }
 
-    if (existing) {
-      throw new ConflictException(
-        `Config with name "${createDocConfigDto.name}" already exists`,
-      );
+  // Sync the single config to Redis
+  private async syncToRedis(): Promise<void> {
+    const config = await this.docConfigRepository.findOne({ where: {} });
+    if (config) {
+      await this.redisService.setPermanent(REDIS_KEY, JSON.stringify(config.config));
+      console.log('[DocConfig] Synced config to Redis');
+    }
+  }
+
+  // Get config from Redis (fast path)
+  async getFromRedis(): Promise<DocumentConfigData | null> {
+    const cached = await this.redisService.get(REDIS_KEY);
+    if (cached) {
+      return JSON.parse(cached) as DocumentConfigData;
+    }
+    return null;
+  }
+
+  // Get the single config
+  async get(): Promise<DocumentConfigData> {
+    // Try Redis first (fast path)
+    const cached = await this.getFromRedis();
+    if (cached) {
+      return cached;
     }
 
-    const docConfig = this.docConfigRepository.create(createDocConfigDto);
-    return this.docConfigRepository.save(docConfig);
-  }
-
-  async findAll(): Promise<DocConfig[]> {
-    return this.docConfigRepository.find({
-      order: { created_at: 'DESC' },
-    });
-  }
-
-  async findOne(id: string): Promise<DocConfig> {
-    const docConfig = await this.docConfigRepository.findOne({
-      where: { id },
-    });
-
+    // Fallback to database
+    const docConfig = await this.docConfigRepository.findOne({ where: {} });
     if (!docConfig) {
-      throw new NotFoundException(`DocConfig with ID "${id}" not found`);
+      throw new NotFoundException('Document config not initialized');
     }
 
-    return docConfig;
+    // Sync to Redis
+    await this.syncToRedis();
+
+    return docConfig.config;
   }
 
-  async findByName(name: string): Promise<DocConfig> {
-    const docConfig = await this.docConfigRepository.findOne({
-      where: { name },
-    });
+  // Create or update the single config (upsert)
+  async set(configData: CreateDocConfigDto): Promise<DocumentConfigData> {
+    let docConfig = await this.docConfigRepository.findOne({ where: {} });
 
-    if (!docConfig) {
-      throw new NotFoundException(`DocConfig with name "${name}" not found`);
-    }
-
-    return docConfig;
-  }
-
-  async findActive(): Promise<DocConfig[]> {
-    return this.docConfigRepository.find({
-      where: { is_active: true },
-      order: { created_at: 'DESC' },
-    });
-  }
-
-  async update(
-    id: string,
-    updateDocConfigDto: UpdateDocConfigDto,
-  ): Promise<DocConfig> {
-    const docConfig = await this.findOne(id);
-
-    // Check if new name conflicts with existing
-    if (
-      updateDocConfigDto.name &&
-      updateDocConfigDto.name !== docConfig.name
-    ) {
-      const existing = await this.docConfigRepository.findOne({
-        where: { name: updateDocConfigDto.name },
+    if (docConfig) {
+      // Update existing
+      docConfig.config = configData as DocumentConfigData;
+    } else {
+      // Create new
+      docConfig = this.docConfigRepository.create({
+        config: configData as DocumentConfigData,
       });
+    }
 
-      if (existing) {
-        throw new ConflictException(
-          `Config with name "${updateDocConfigDto.name}" already exists`,
-        );
+    const saved = await this.docConfigRepository.save(docConfig);
+
+    // Sync to Redis
+    await this.redisService.setPermanent(REDIS_KEY, JSON.stringify(saved.config));
+
+    return saved.config;
+  }
+
+  // Partial update
+  async update(updateData: UpdateDocConfigDto): Promise<DocumentConfigData> {
+    const docConfig = await this.docConfigRepository.findOne({ where: {} });
+
+    if (!docConfig) {
+      throw new NotFoundException('Document config not initialized. Use PUT to create first.');
+    }
+
+    // Deep merge the update
+    const merged = this.deepMerge(docConfig.config, updateData);
+    docConfig.config = merged;
+
+    const saved = await this.docConfigRepository.save(docConfig);
+
+    // Sync to Redis
+    await this.redisService.setPermanent(REDIS_KEY, JSON.stringify(saved.config));
+
+    return saved.config;
+  }
+
+  // Deep merge helper
+  private deepMerge(target: any, source: any): any {
+    const result = { ...target };
+    for (const key of Object.keys(source)) {
+      if (source[key] !== undefined) {
+        if (typeof source[key] === 'object' && !Array.isArray(source[key])) {
+          result[key] = this.deepMerge(target[key] || {}, source[key]);
+        } else {
+          result[key] = source[key];
+        }
       }
     }
-
-    Object.assign(docConfig, updateDocConfigDto);
-    return this.docConfigRepository.save(docConfig);
-  }
-
-  async remove(id: string): Promise<void> {
-    const docConfig = await this.findOne(id);
-    await this.docConfigRepository.remove(docConfig);
+    return result;
   }
 }

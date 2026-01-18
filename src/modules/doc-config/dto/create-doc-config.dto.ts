@@ -2,8 +2,6 @@
 import {
     IsString,
     IsNotEmpty,
-    IsOptional,
-    IsBoolean,
     IsNumber,
     ValidateNested,
     Min,
@@ -87,20 +85,5 @@ export class DocumentConfigDataDto {
     indent_rules: IndentRulesConfigDto;
 }
 
-export class CreateDocConfigDto {
-    @IsString()
-    @IsNotEmpty()
-    name: string;
-
-    @IsString()
-    @IsOptional()
-    description?: string;
-
-    @ValidateNested()
-    @Type(() => DocumentConfigDataDto)
-    config: DocumentConfigDataDto;
-
-    @IsOptional()
-    @IsBoolean()
-    is_active?: boolean;
-}
+// For single config, just use the config data directly
+export class CreateDocConfigDto extends DocumentConfigDataDto { }

@@ -3,6 +3,7 @@ import { AppDataSource } from '../data-source';
 import { UserAccount } from '../../modules/users/entities/user-account.entity';
 import { Student } from '../../modules/users/entities/student.entity';
 import { Instructor } from '../../modules/users/entities/instructor.entity';
+import { DocConfig } from '../../modules/doc-config/entities/doc-config.entity';
 import * as bcrypt from 'bcrypt';
 
 // ตัวเลือกคำนำหน้าชื่อ (เพิ่ม/ลด ได้ตามต้องการ)
@@ -111,6 +112,40 @@ async function run() {
       });
       console.log(`Created Admin: ${email}`);
     }
+  }
+
+  // ------------------------------------------
+  // DOC CONFIG (single config)
+  // ------------------------------------------
+  const docConfigRepo = ds.getRepository(DocConfig);
+  const existingConfig = await docConfigRepo.findOne({ where: {} });
+
+  if (!existingConfig) {
+    await docConfigRepo.save({
+      config: {
+        margin_mm: {
+          top: 38.1,
+          bottom: 25.4,
+          left: 38.1,
+          right: 25.4,
+        },
+        font: {
+          name: 'sarabun',
+          size: 15.0,
+          tolerance: 1.0,
+        },
+        indent_rules: {
+          paragraph: 15.0,
+          sub_section_num: 15.0,
+          sub_section_text_1: 25.0,
+          sub_section_text_2: 27.6,
+          bullet_point: 25.0,
+          bullet_text: 30.0,
+          tolerance: 1.0,
+        },
+      },
+    });
+    console.log('Created DocConfig');
   }
 
   console.log('✅ Seed Completed');

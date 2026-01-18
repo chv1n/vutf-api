@@ -2,14 +2,9 @@
 import {
   Controller,
   Get,
-  Post,
-  Body,
+  Put,
   Patch,
-  Param,
-  Delete,
-  ParseUUIDPipe,
-  HttpCode,
-  HttpStatus,
+  Body,
 } from '@nestjs/common';
 import { DocConfigService } from './doc-config.service';
 import { CreateDocConfigDto } from './dto/create-doc-config.dto';
@@ -19,42 +14,21 @@ import { UpdateDocConfigDto } from './dto/update-doc-config.dto';
 export class DocConfigController {
   constructor(private readonly docConfigService: DocConfigService) { }
 
-  @Post()
-  create(@Body() createDocConfigDto: CreateDocConfigDto) {
-    return this.docConfigService.create(createDocConfigDto);
+  // GET /doc-config - Get the single config
+  @Get()
+  get() {
+    return this.docConfigService.get();
   }
 
-  // @Get()
-  // findAll() {
-  //   return this.docConfigService.findAll();
-  // }
-
-  @Get('active')
-  findActive() {
-    return this.docConfigService.findActive();
+  // PUT /doc-config - Set/replace the entire config
+  @Put()
+  set(@Body() configData: CreateDocConfigDto) {
+    return this.docConfigService.set(configData);
   }
 
-  // @Get('name/:name')
-  // findByName(@Param('name') name: string) {
-  //   return this.docConfigService.findByName(name);
-  // }
-
-  @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.docConfigService.findOne(id);
+  // PATCH /doc-config - Partial update
+  @Patch()
+  update(@Body() updateData: UpdateDocConfigDto) {
+    return this.docConfigService.update(updateData);
   }
-
-  @Patch(':id')
-  update(
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() updateDocConfigDto: UpdateDocConfigDto,
-  ) {
-    return this.docConfigService.update(id, updateDocConfigDto);
-  }
-
-  // @Delete(':id')
-  // @HttpCode(HttpStatus.NO_CONTENT)
-  // remove(@Param('id', ParseUUIDPipe) id: string) {
-  //   return this.docConfigService.remove(id);
-  // }
 }

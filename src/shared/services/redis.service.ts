@@ -35,6 +35,10 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         await this.client.set(key, value, 'EX', ttlSeconds);
     }
 
+    async setPermanent(key: string, value: string) {
+        await this.client.set(key, value);
+    }
+
     async get(key: string): Promise<string | null> {
         return this.client.get(key);
     }
