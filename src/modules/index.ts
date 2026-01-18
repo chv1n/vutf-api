@@ -15,10 +15,13 @@ import { AdvisorAssignmentModule } from './advisor-assignment/advisor-assignment
 
 import { StorageModule } from '../common/modules/storage.module';
 import { ThesisTopicModule } from './thesis-topic/thesis-topic.module';
-import { ClassSectionsModule } from './class-sections/class-sections.module';
+import { ClassSectionsModule } from './class-sections/class-sections.module';import { DocConfigModule } from './doc-config/doc-config.module';
+    
+
 
 
 export const AppModules = [
+    DocConfigModule,
     StorageModule,
     SubmissionsModule,
     UsersModule,
