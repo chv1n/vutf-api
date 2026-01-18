@@ -22,6 +22,7 @@ import { UsersService } from '../users/users.service';
 import { InspectionRound } from '../inspection_round/entities/inspection_round.entity';
 import { Submission } from '../submissions/entities/submission.entity';
 import { CourseType } from '../inspection_round/entities/inspection_round.entity';
+import { AdvisedGroupResponseDto, GroupProgressDto } from './dto/advised-group-response.dto';
 
 
 import type { IStorageService } from '../../common/interfaces/storage.interface';
@@ -314,84 +315,83 @@ export class AdvisorAssignmentService {
     });
   }
 
-  async getAdvisedGroupsWithProgress(instructorUserId: string) {
-    // 1. Get instructor
+  async getAdvisedGroupsWithProgress(instructorUserId: string): Promise<AdvisedGroupResponseDto[]> {
+    // 1. Validate Instructor
     const user = await this.usersService.findById(instructorUserId);
-
-    if (!user || !user.instructor) {
+    if (!user?.instructor) {
       throw new NotFoundException('ไม่พบข้อมูลอาจารย์ที่ปรึกษาในระบบ');
     }
     const instructorId = user.instructor.instructor_uuid;
 
-    // 2. Find groups
+    // 2. Fetch Assignments & Groups
     const assignments = await this.advisorRepo.find({
-      where: {
-        instructor_uuid: instructorId,
-        deleted_at: IsNull()
-      },
+      where: { instructor_uuid: instructorId, deleted_at: IsNull() },
       relations: ['group', 'group.thesis', 'group.members', 'group.members.student'],
     });
 
-    const groupIds = assignments.map(a => a.group_id);
-    if (groupIds.length === 0) return [];
+    if (assignments.length === 0) return [];
 
-    // 3. Get all inspection rounds
-    const allRounds = await this.inspectionRoundRepository.find({
-      where: { isActive: true },
-      order: { roundNumber: 'ASC' }
-    });
+    const groupIds = assignments.map((a) => a.group_id);
 
-    // 4. Get submissions
-    const submissions = await this.submissionRepo.find({
-      where: { group: { group_id: In(groupIds) } },
-      relations: ['inspectionRound', 'group'],
-    });
+    // 3. Prepare Parallel Data Fetching (ลดเวลา Response Time)
+    const [allRounds, submissions] = await Promise.all([
+      this.inspectionRoundRepository.find({
+        where: { isActive: true },
+        order: { roundNumber: 'ASC' },
+      }),
+      this.submissionRepo.find({
+        where: { group: { group_id: In(groupIds) } },
+        relations: ['inspectionRound', 'group'],
+        order: { submittedAt: 'DESC' }
+      }),
+    ]);
 
-    // 5. Map data
-    return Promise.all(assignments.map(async (assignment) => {
+    // 4. Map & Transform Data
+    return Promise.all(assignments.map(async (assignment): Promise<AdvisedGroupResponseDto> => {
       const group = assignment.group;
       const thesis = group.thesis;
 
-      const groupCourseType = thesis.course_type;
-      const groupYear = thesis.start_academic_year;
-      const groupTerm = thesis.start_term;
-
-      // Filter รอบการตรวจ
-      const applicableRounds = allRounds.filter(round => {
-        const isTypeMatch = round.courseType === CourseType.ALL || round.courseType === groupCourseType;
-        const isYearMatch = groupYear ? round.academicYear === String(groupYear) : false;
-        const isTermMatch = groupTerm ? round.term === String(groupTerm) : false;
-
+      // Filter Rounds
+      const applicableRounds = allRounds.filter((round) => {
+        const isTypeMatch = round.courseType === CourseType.ALL || round.courseType === thesis.course_type;
+        const isYearMatch = thesis.start_academic_year ? round.academicYear === String(thesis.start_academic_year) : false;
+        const isTermMatch = thesis.start_term ? round.term === String(thesis.start_term) : false;
         return isTypeMatch && isYearMatch && isTermMatch;
       });
 
-      // Map progress
-      const groupSubmissions = await Promise.all(applicableRounds.map(async (round) => {
-        const submission = submissions.find(s =>
-          s.group.group_id === group.group_id &&
-          s.inspectionRound.inspectionId === round.inspectionId
+      // Calculate Progress
+      const groupSubmissions: GroupProgressDto[] = await Promise.all(applicableRounds.map(async (round) => {
+        const submission = submissions.find(
+          (s) => s.group.group_id === group.group_id && s.inspectionRound.inspectionId === round.inspectionId
         );
 
+        // Default Values
         let status = 'MISSING';
-        let signedUrl: string | null = null;
+        let previewUrl: string | null = null;
+        let downloadUrl: string | null = null;
 
-        if (submission) {
-          status = submission.status;
-
-          signedUrl = submission.fileUrl; // ค่าเริ่มต้น
-          if (submission.storagePath) {
-            try {
-              signedUrl = await this.storageService.getFileUrl(submission.storagePath);
-            } catch (error) {
-              this.logger.error(`Failed to generate signed url for ${submission.storagePath}`, error);
-            }
-          }
-
-        } else {
-          const now = new Date();
+        // Determine Status based on Time
+        const now = new Date();
+        if (!submission) {
           if (now > round.endDate) status = 'OVERDUE';
           else if (now < round.startDate) status = 'UPCOMING';
           else status = 'WAITING_FOR_SUBMISSION';
+        } else {
+          status = submission.status;
+          previewUrl = submission.fileUrl;
+          downloadUrl = submission.fileUrl;
+
+          // Generate Signed URLs
+          if (submission.storagePath) {
+            try {
+              [previewUrl, downloadUrl] = await Promise.all([
+                this.storageService.getFileUrl(submission.storagePath, 3600, false), // Preview
+                this.storageService.getFileUrl(submission.storagePath, 3600, true, submission.fileName), // Download
+              ]);
+            } catch (error) {
+              this.logger.error(`Failed to generate URLs for ${submission.storagePath}`, error);
+            }
+          }
         }
 
         return {
@@ -400,31 +400,33 @@ export class AdvisorAssignmentService {
           roundNumber: round.roundNumber,
           startDate: round.startDate,
           endDate: round.endDate,
-          status: status,
+          status,
           submittedAt: submission?.submittedAt || null,
           submissionId: submission?.submissionId || null,
-          fileUrl: signedUrl,
-          fileName: submission?.fileName || null
+          fileUrl: previewUrl,
+          downloadUrl: downloadUrl,
+          fileName: submission?.fileName || null,
         };
       }));
 
+      // Return DTO
       return {
         groupId: group.group_id,
         thesisCode: thesis.thesis_code,
         thesisName: thesis.thesis_name_th,
         thesisStatus: thesis.status,
         advisorRole: assignment.role,
-        courseType: groupCourseType,
-        academicYear: groupYear,
-        term: groupTerm,
+        courseType: thesis.course_type,
+        academicYear: String(thesis.start_academic_year),
+        term: String(thesis.start_term),
         students: group.members
-          .filter(m => m.invitation_status !== 'rejected')
-          .map(m => ({
+          .filter((m) => m.invitation_status !== 'rejected')
+          .map((m) => ({
             name: `${m.student.first_name} ${m.student.last_name}`,
             code: m.student.student_code,
-            role: m.role
+            role: m.role,
           })),
-        progress: groupSubmissions
+        progress: groupSubmissions,
       };
     }));
   }

@@ -19,7 +19,7 @@ import { CreateSubmissionDto } from './dto/create-submission.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { Query } from '@nestjs/common';
+import { Query, Header } from '@nestjs/common';
 import { GetSubmissionsFilterDto } from './dto/get-submissions-filter.dto';
 
 @Controller('submissions')
@@ -69,9 +69,12 @@ export class SubmissionsController {
 
   /**
    * Get file download URL
-   * GET /submissions/:id/file
+   * Post /submissions/:id/file
    */
-  @Get(':id/file')
+  @Post(':id/file')  // ปลี่ยน @Get เป็น @Post
+  @Header('Cache-Control', 'no-cache, no-store, must-revalidate') // สั่งห้าม Cache
+  @Header('Pragma', 'no-cache')
+  @Header('Expires', '0')
   @Roles('student', 'instructor', 'admin')
   async getFileUrl(@Param('id', ParseIntPipe) id: number) {
     return this.submissionsService.getFileUrl(id);

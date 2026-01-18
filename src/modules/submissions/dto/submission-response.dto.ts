@@ -23,6 +23,7 @@ export class SubmissionResponseDto {
     submissionId: number;
     fileName: string;
     fileUrl: string;
+    downloadUrl: string;
     fileSize: number;
     mimeType: string;
     status: SubmissionStatus;
@@ -32,6 +33,7 @@ export class SubmissionResponseDto {
     groupId: string;
 
     inspectionId: number;
+    inspectionRoundNumber: number;
     inspectionTitle: string;
     inspectionDescription: string;
     inspectionStartDate: Date;
@@ -52,6 +54,7 @@ export class SubmissionResponseDto {
         dto.submissionId = entity.submissionId;
         dto.fileName = entity.fileName;
         dto.fileUrl = entity.fileUrl;
+        dto.downloadUrl = entity.fileUrl;
         dto.fileSize = entity.fileSize;
         dto.mimeType = entity.mimeType;
         dto.status = entity.status;
@@ -76,6 +79,7 @@ export class SubmissionResponseDto {
 
         // 3. ข้อมูลรอบการตรวจ (Inspection Round)
         if (entity.inspectionRound) {
+            dto.inspectionRoundNumber = entity.inspectionRound.roundNumber;
             dto.inspectionTitle = entity.inspectionRound.title;
             dto.inspectionDescription = entity.inspectionRound.description;
             dto.inspectionStartDate = entity.inspectionRound.startDate;
