@@ -39,4 +39,12 @@ export default () => ({
     maxFileSize: parseInt(process.env.UPLOAD_MAX_FILE_SIZE ?? '52428800', 10), // 50MB
     allowedMimeTypes: ['application/pdf'],
   },
+  rabbitmq: {
+    host: process.env.RABBITMQ_HOST || 'localhost',
+    port: parseInt(process.env.RABBITMQ_PORT ?? '5672', 10),
+    user: process.env.RABBITMQ_USER || 'guest',
+    password: process.env.RABBITMQ_PASSWORD || 'guest',
+    jobQueue: process.env.RABBITMQ_JOB_QUEUE || 'pdf_verification_jobs',
+    resultQueue: process.env.RABBITMQ_RESULT_QUEUE || 'pdf_verification_results',
+  },
 });

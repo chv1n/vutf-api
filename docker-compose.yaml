@@ -23,6 +23,19 @@ services:
     volumes:
       - vutf_redis_data:/data
 
+  rabbitmq:
+    container_name: vutf_rabbitmq
+    image: rabbitmq:3-management
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "${RABBITMQ_PORT}:5672"           # AMQP port
+      - "${RABBITMQ_MANAGEMENT_PORT}:15672"  # Management UI port
+    volumes:
+      - vutf_rabbitmq_data:/var/lib/rabbitmq
+
   adminer:
     container_name: vutf_adminer
     image: adminer
@@ -47,4 +60,5 @@ services:
 volumes:
   vutf_db_data:
   vutf_redis_data:
+  vutf_rabbitmq_data:
   vutf_minio_data:

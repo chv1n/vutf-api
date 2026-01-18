@@ -184,7 +184,21 @@ export class SubmissionsService {
       order: { submittedAt: 'DESC' },
     });
 
-    return submissions.map(SubmissionResponseDto.fromEntity);
+    // Refresh presigned URLs for all submissions
+    const results = await Promise.all(
+      submissions.map(async (submission) => {
+        if (submission.storagePath) {
+          try {
+            submission.fileUrl = await this.storageService.getFileUrl(submission.storagePath);
+          } catch (error) {
+            this.logger.warn(`Failed to refresh URL for ${submission.storagePath}: ${error.message}`);
+          }
+        }
+        return SubmissionResponseDto.fromEntity(submission);
+      })
+    );
+
+    return results;
   }
 
   /**

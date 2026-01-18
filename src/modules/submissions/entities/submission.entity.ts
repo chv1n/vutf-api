@@ -6,6 +6,7 @@ import {
     ManyToOne,
     JoinColumn,
     OneToOne,
+    OneToMany
 } from 'typeorm';
 import { Thesis } from '../../thesis/entities/thesis.entity';
 import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
@@ -13,6 +14,7 @@ import { UserAccount } from '../../users/entities/user-account.entity';
 import { InspectionRound } from '../../inspection_round/entities/inspection_round.entity';
 import { SubmissionStatus } from '../enum/submission-status.enum';
 import { Student } from '../../users/entities/student.entity';
+import { ReportFile } from '../../report-file/entities/report-file.entity';
 
 
 
@@ -79,5 +81,8 @@ export class Submission {
 
     @OneToOne(() => Student, (student) => student.user)
     student: Student;
+
+    @OneToMany(() => ReportFile, (reportFile) => reportFile.submission)
+    report_files: ReportFile[];
 }
 
