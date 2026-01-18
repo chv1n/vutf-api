@@ -7,11 +7,6 @@ import { UpdateReportFileDto } from './dto/update-report-file.dto';
 export class ReportFileController {
   constructor(private readonly reportFileService: ReportFileService) {}
 
-  @Post()
-  create(@Body() createReportFileDto: CreateReportFileDto) {
-    return this.reportFileService.create(createReportFileDto);
-  }
-
   @Get()
   findAll() {
     return this.reportFileService.findAll();
@@ -22,13 +17,10 @@ export class ReportFileController {
     return this.reportFileService.findOne(+id);
   }
 
-  @Patch(':id')
+  @Patch(':id/comment')
   update(@Param('id') id: string, @Body() updateReportFileDto: UpdateReportFileDto) {
     return this.reportFileService.update(+id, updateReportFileDto);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.reportFileService.remove(+id);
-  }
+
 }
