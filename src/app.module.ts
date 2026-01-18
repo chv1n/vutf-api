@@ -9,6 +9,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppModules } from './modules';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ReportFileModule } from './modules/report-file/report-file.module';
 
 
 
@@ -35,6 +36,7 @@ import { ScheduleModule } from '@nestjs/schedule';
       }),
     }),
     ...AppModules,
+    ReportFileModule,
 
 
   ],
