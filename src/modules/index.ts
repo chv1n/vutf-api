@@ -15,12 +15,17 @@ import { AdvisorAssignmentModule } from './advisor-assignment/advisor-assignment
 
 import { StorageModule } from '../common/modules/storage.module';
 import { ThesisTopicModule } from './thesis-topic/thesis-topic.module';
-import { ClassSectionsModule } from './class-sections/class-sections.module';import { DocConfigModule } from './doc-config/doc-config.module';
-    
+import { ClassSectionsModule } from './class-sections/class-sections.module'; import { DocConfigModule } from './doc-config/doc-config.module';
+import { ReportFileModule } from './report-file/report-file.module';
+import { RabbitmqModule } from '../shared/rabbitmq/rabbitmq.module';
+
+
 
 
 
 export const AppModules = [
+    RabbitmqModule,
+    ReportFileModule,
     DocConfigModule,
     StorageModule,
     SubmissionsModule,
