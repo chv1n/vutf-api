@@ -24,7 +24,7 @@ export interface IStorageService {
      * @param expiresIn - URL expiration time in seconds (default: 3600)
      * @returns Presigned URL string
      */
-    getFileUrl(path: string, expiresIn?: number): Promise<string>;
+    getFileUrl(path: string, expiresIn?: number, isDownload?: boolean, fileName?: string): Promise<string>;
 }
 
 export interface UploadResult {

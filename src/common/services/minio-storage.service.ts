@@ -81,7 +81,31 @@ export class MinioStorageService implements IStorageService {
      * @param path - Storage path
      * @param expiresIn - Expiration time in seconds (default: 1 hour)
      */
-    async getFileUrl(path: string, expiresIn: number = 3600): Promise<string> {
-        return this.client.presignedGetObject(this.bucket, path, expiresIn);
+    async getFileUrl(
+        path: string,
+        expiresIn: number = 3600,
+        isDownload: boolean = false,
+        fileName?: string
+    ): Promise<string> {
+        const reqParams: any = {};
+
+        if (isDownload && fileName) {
+            // encodeURIComponent เพื่อป้องกันปัญหาชื่อไฟล์ภาษาไทยหรืออักขระพิเศษ
+            const encodedName = encodeURIComponent(fileName);
+
+            /**
+             * การตั้งค่า Content-Disposition:
+             * filename= ใช้สำหรับ Browser รุ่นเก่า (อาจมีปัญหากับภาษาไทย)
+             * filename*=UTF-8'' ใช้ตามมาตรฐาน RFC 5987 เพื่อรองรับภาษาไทย 100%
+             */
+            reqParams['response-content-disposition'] =
+                `attachment; filename="${encodedName}"; filename*=UTF-8''${encodedName}`;
+        } else if (isDownload) {
+            reqParams['response-content-disposition'] = 'attachment';
+        } else {
+            reqParams['response-content-disposition'] = 'inline';
+        }
+
+        return this.client.presignedGetObject(this.bucket, path, expiresIn, reqParams);
     }
 }
