@@ -1,4 +1,5 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+// src/modules/instructor/instructor.service.ts
+import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -7,6 +8,8 @@ import { UserAccount } from '../users/entities/user-account.entity';
 import { Instructor } from '../users/entities/instructor.entity';
 import { CreateInstructorByAdminDto } from './dto/create-instructor.dto';
 import { GetInstructorsQueryDto } from './dto/get-instructors-query.dto';
+import { UpdateInstructorProfileDto } from './dto/update-instructor-profile.dto';
+
 import { QueryHelper, PaginatedResponse } from '../../common/helpers';
 import { InstructorResponse } from './interfaces';
 
@@ -152,4 +155,48 @@ export class InstructorService {
     is_active: instructor.user?.isActive || false,
     create_at: instructor.create_at,
   });
+
+  // ----------------------------------------------------------------
+  // 📍 Instructor Self-Service Features
+  // ----------------------------------------------------------------
+
+  /**
+   * ดึงข้อมูล Profile ของอาจารย์ที่ Login อยู่
+   * @param userId user_uuid จาก JWT Payload
+   */
+  async getProfile(userId: string): Promise<InstructorResponse> {
+    const instructor = await this.instructorRepository.findOne({
+      where: { user_uuid: userId },
+      relations: ['user'],
+    });
+
+    if (!instructor) {
+      throw new NotFoundException('ไม่พบข้อมูลอาจารย์ในระบบ');
+    }
+
+    return this.mapToResponse(instructor);
+  }
+
+  /**
+   * แก้ไขข้อมูลส่วนตัวของอาจารย์
+   * @param userId user_uuid จาก JWT Payload
+   * @param dto ข้อมูลที่ต้องการแก้ไข
+   */
+  async updateProfile(userId: string, dto: UpdateInstructorProfileDto): Promise<InstructorResponse> {
+    const instructor = await this.instructorRepository.findOne({
+      where: { user_uuid: userId },
+      relations: ['user'],
+    });
+
+    if (!instructor) {
+      throw new NotFoundException('ไม่พบข้อมูลอาจารย์');
+    }
+
+    if (dto.firstName) instructor.first_name = dto.firstName;
+    if (dto.lastName) instructor.last_name = dto.lastName;
+
+    const updatedInstructor = await this.instructorRepository.save(instructor);
+
+    return this.mapToResponse(updatedInstructor);
+  }
 }

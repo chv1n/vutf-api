@@ -42,6 +42,29 @@ export class SubmissionsService {
     private readonly configService: ConfigService,
   ) { }
 
+  // ==========================================
+  // PRIVATE HELPER: รวม Logic การสร้าง URL ไว้ที่เดียว
+  // ==========================================
+  private async generateFileUrls(storagePath: string, fileName: string): Promise<{ url: string; downloadUrl: string }> {
+    if (!storagePath) {
+      return { url: '', downloadUrl: '' };
+    }
+
+    try {
+      const [url, downloadUrl] = await Promise.all([
+        // 1. Preview URL (Inline) - หมดอายุ 1 ชม.
+        this.storageService.getFileUrl(storagePath, 3600, false),
+        // 2. Download URL (Attachment) - หมดอายุ 1 ชม.
+        this.storageService.getFileUrl(storagePath, 3600, true, fileName),
+      ]);
+
+      return { url, downloadUrl };
+    } catch (error) {
+      this.logger.error(`Failed to generate URLs for path ${storagePath}: ${error.message}`);
+      return { url: '', downloadUrl: '' };
+    }
+  }
+
   /**
    * Create or update a submission
    */
@@ -85,8 +108,8 @@ export class SubmissionsService {
     }
 
 
-    // const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    // file.originalname = originalName;
+    const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    file.originalname = originalName;
 
     // 6. Upload file to storage
     const storagePath = `submissions/${dto.groupId}/${dto.inspectionId}`;
@@ -134,7 +157,14 @@ export class SubmissionsService {
         throw new NotFoundException('Submission not found after save');
       }
 
-      return SubmissionResponseDto.fromEntity(reloaded);
+      const dtoResponse = SubmissionResponseDto.fromEntity(reloaded);
+
+      const { url, downloadUrl } = await this.generateFileUrls(reloaded.storagePath, reloaded.fileName);
+      
+      dtoResponse.fileUrl = url;
+      dtoResponse.downloadUrl = downloadUrl;
+
+      return dtoResponse;
 
     } catch (error) {
       // กรณีบันทึก DB ไม่สำเร็จ ควรพิจารณาลบไฟล์ที่เพิ่งอัปโหลดขึ้น S3 ไปเพื่อไม่ให้เกิด Orphaned File
@@ -194,22 +224,23 @@ export class SubmissionsService {
       throw new NotFoundException('Submission not found');
     }
 
-    // Generate Signed URL ใหม่ (กัน Link Expired)
+    // 1. แปลง Entity เป็น DTO ก่อน (ค่า downloadUrl จะถูก set เป็น fileUrl เริ่มต้นใน fromEntity)
+    const dto = SubmissionResponseDto.fromEntity(submission);
+
+    // 2. Override URL ถ้ามี storagePath (สร้าง Signed URL ใหม่)
     if (submission.storagePath) {
-      try {
-        submission.fileUrl = await this.storageService.getFileUrl(submission.storagePath);
-      } catch (e) {
-        this.logger.error(`Failed to sign url for ${submission.storagePath}`, e);
-      }
+      const { url, downloadUrl } = await this.generateFileUrls(submission.storagePath, submission.fileName);
+      dto.fileUrl = url;
+      dto.downloadUrl = downloadUrl;
     }
 
-    return SubmissionResponseDto.fromEntity(submission);
+    return dto;
   }
 
   /**
-   * Get file URL (refreshed presigned URL)
+   * Get file URL (refreshed presigned URLs)
    */
-  async getFileUrl(submissionId: number): Promise<{ url: string }> {
+  async getFileUrl(submissionId: number): Promise<{ url: string; downloadUrl: string }> {
     const submission = await this.submissionRepo.findOne({
       where: { submissionId },
     });
@@ -218,8 +249,11 @@ export class SubmissionsService {
       throw new NotFoundException('File not found');
     }
 
-    const url = await this.storageService.getFileUrl(submission.storagePath);
-    return { url };
+    // this.logger.log(`Generated URL for ID ${submissionId}:`);
+    // this.logger.log(`Preview: ${previewUrl}`);
+    // this.logger.log(`Download: ${downloadUrl}`);
+
+    return this.generateFileUrls(submission.storagePath, submission.fileName);
   }
 
   // =============== Validation Helpers ===============
@@ -362,12 +396,10 @@ export class SubmissionsService {
     if (term) query.andWhere('inspectionRound.term = :term', { term });
     if (academicYear) query.andWhere('inspectionRound.academic_year = :year', { year: academicYear });
 
-    // Filter Course Type
     if (courseType && courseType !== 'ALL') {
       query.andWhere('inspectionRound.course_type = :courseType', { courseType });
     }
 
-    // Filter Status
     if (status) {
       query.andWhere('submission.status = :status', { status });
     }
@@ -386,23 +418,15 @@ export class SubmissionsService {
         ? `${student.first_name} ${student.last_name}`.trim()
         : item.submitter.email;
 
-      // Generate New Signed URL using storagePath
-      let signedUrl = item.fileUrl; // Fallback to old url
-      if (item.storagePath) {
-        try {
-          // ใช้ storagePath (key ใน MinIO) ในการขอ Link ใหม่
-          signedUrl = await this.storageService.getFileUrl(item.storagePath);
-        } catch (error) {
-          this.logger.error(`Failed to generate signed url for ${item.storagePath}`, error);
-        }
-      }
+      const { url, downloadUrl } = await this.generateFileUrls(item.storagePath, item.fileName);
 
       return {
         id: item.submissionId,
 
         file: {
-          name: item.fileName, // ชื่อไฟล์ดั้งเดิม (สำหรับแสดงผล)
-          url: signedUrl,      // ลิงก์ที่ใช้งานได้จริง (ไม่ Expire)
+          name: item.fileName,
+          url: url || item.fileUrl,          
+          downloadUrl: downloadUrl || item.fileUrl,
           type: item.mimeType,
           size: this.formatBytes(item.fileSize),
         },

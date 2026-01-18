@@ -1,7 +1,8 @@
-import { 
-  Controller, Get, Post, Put, Delete, 
-  Body, Param, Query, Request, 
-  UseGuards, ParseIntPipe 
+// src/modules/class-sections/class-sections.controller.ts
+import {
+  Controller, Get, Post, Put, Delete,
+  Body, Param, Query,
+  UseGuards, ParseIntPipe
 } from '@nestjs/common';
 import { ClassSectionsService } from './class-sections.service';
 import { CreateClassSectionDto } from './dto/create-class-section.dto';
@@ -12,34 +13,27 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('class-sections')
-@UseGuards(JwtAuthGuard, RolesGuard)
 export class ClassSectionsController {
-  constructor(private readonly service: ClassSectionsService) {}
+  constructor(private readonly service: ClassSectionsService) { }
 
   @Post()
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   async create(@Body() dto: CreateClassSectionDto) {
     const data = await this.service.create(dto);
     return { success: true, data };
   }
 
+  @Get('current-semester')
+  getCurrentSemester() {
+    const data = this.service.getCurrentSemester();
+    return { success: true, data };
+  }
+
   @Get()
-  @Roles('admin', 'student')
-  async findAll(
-    @Query() filterDto: GetClassSectionsFilterDto,
-    @Request() req,
-  ) {
-    // Logic พิเศษสำหรับ Student: บังคับดูแค่เทอมปัจจุบัน
-    if (req.user.role === 'student') {
-      const current = this.service.getCurrentSemester();
-      
-      // Override Filter
-      filterDto.academic_year = current.academic_year;
-      filterDto.term = current.term;
-    }
+  async findAll(@Query() filterDto: GetClassSectionsFilterDto) {
 
     const result = await this.service.findAllWithFilter(filterDto);
-
     return {
       success: true,
       data: result.data,
@@ -48,6 +42,7 @@ export class ClassSectionsController {
   }
 
   @Put(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -58,6 +53,7 @@ export class ClassSectionsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin')
   async remove(@Param('id', ParseIntPipe) id: number) {
     const data = await this.service.remove(id);

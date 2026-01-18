@@ -44,12 +44,12 @@ export class ThesisTopicService {
     // เริ่มสร้าง QueryBuilder
     const query = this.thesisGroupRepo.createQueryBuilder('group')
       .innerJoinAndSelect('group.thesis', 'thesis')
-      
+
       .leftJoinAndSelect(
-          'group.members', 
-          'members', 
-          'members.invitation_status != :rejectedStatus', 
-          { rejectedStatus: 'rejected' } // หรือใช้ Enum: InvitationStatus.REJECTED
+        'group.members',
+        'members',
+        'members.invitation_status != :rejectedStatus',
+        { rejectedStatus: 'rejected' } // หรือใช้ Enum: InvitationStatus.REJECTED
       )
       .leftJoinAndSelect('members.student', 'student')
       .leftJoinAndSelect('group.advisor', 'advisor')
@@ -83,9 +83,9 @@ export class ThesisTopicService {
         qb.where('thesis.thesis_name_th LIKE :keyword', { keyword: `%${keyword}%` })
           .orWhere('thesis.thesis_name_en LIKE :keyword', { keyword: `%${keyword}%` })
           .orWhere('thesis.thesis_code LIKE :keyword', { keyword: `%${keyword}%` })
-          // .orWhere('student.first_name LIKE :keyword', { keyword: `%${keyword}%` })
-          // .orWhere('student.last_name LIKE :keyword', { keyword: `%${keyword}%` })
-          // .orWhere('student.student_code LIKE :keyword', { keyword: `%${keyword}%` });
+        // .orWhere('student.first_name LIKE :keyword', { keyword: `%${keyword}%` })
+        // .orWhere('student.last_name LIKE :keyword', { keyword: `%${keyword}%` })
+        // .orWhere('student.student_code LIKE :keyword', { keyword: `%${keyword}%` });
       }));
     }
 
@@ -163,9 +163,12 @@ export class ThesisTopicService {
     }
 
     // Check 1: ห้ามยุ่งกับกลุ่มที่สมาชิกยังไม่ครบ
-    const allMembersAccepted = group.members.every(m => m.invitation_status === 'approved');
-    if (!allMembersAccepted) {
-      throw new BadRequestException('ไม่สามารถดำเนินการได้ เนื่องจากสมาชิกยังตอบรับไม่ครบ');
+    const hasPendingMembers = group.members.some(
+      m => m.invitation_status !== 'approved' && m.invitation_status !== 'rejected'
+    );
+
+    if (hasPendingMembers) {
+      throw new BadRequestException('ไม่สามารถดำเนินการได้ เนื่องจากยังมีสมาชิกที่ยังไม่ตอบรับหรือปฏิเสธคำเชิญ');
     }
 
     // Check 2: ห้ามยุ่งกับกลุ่มที่ Rejected ไปแล้ว (ต้องรอ นศ. แก้)
@@ -174,9 +177,9 @@ export class ThesisTopicService {
     }
 
     // Check 3 (Optional): ห้าม Approve ซ้ำ
-    if (group.status === ThesisGroupStatus.APPROVED) {
-      throw new BadRequestException('กลุ่มนี้ได้รับการอนุมัติไปแล้ว');
-    }
+    // if (group.status === ThesisGroupStatus.APPROVED) {
+    //   throw new BadRequestException('กลุ่มนี้ได้รับการอนุมัติไปแล้ว');
+    // }
 
     // --- Process Update ---
     group.status = dto.status;
