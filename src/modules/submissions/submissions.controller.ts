@@ -48,6 +48,17 @@ export class SubmissionsController {
   }
 
   /**
+   * Get status summary for polling (lightweight)
+   * GET /submissions/status-summary
+   * Returns only the count of IN_PROGRESS submissions
+   */
+  @Get('status-summary')
+  @Roles('admin', 'instructor')
+  async getStatusSummary() {
+    return this.submissionsService.getStatusSummary();
+  }
+
+  /**
    * Get submissions by group
    * GET /submissions/group/:groupId
    */

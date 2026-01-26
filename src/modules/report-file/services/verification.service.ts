@@ -3,6 +3,7 @@ import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Submission } from '../../submissions/entities/submission.entity';
+import { SubmissionStatus } from '../../submissions/enum/submission-status.enum';
 import { JobProducerService } from './job-producer.service';
 import { DocConfigService } from '../../doc-config/doc-config.service';
 import type { IStorageService } from '../../../common/interfaces/storage.interface';
@@ -56,6 +57,10 @@ export class VerificationService {
             submission.fileName,
             config,
         );
+
+        // 5. Update status to IN_PROGRESS
+        submission.status = SubmissionStatus.IN_PROGRESS;
+        await this.submissionRepo.save(submission);
 
         this.logger.log(`Verification job ${jobId} sent for submission ${submissionId}`);
 
