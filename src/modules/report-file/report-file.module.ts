@@ -1,0 +1,31 @@
+// src/modules/report-file/report-file.module.ts
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ReportFileService } from './report-file.service';
+import { ReportFileController } from './report-file.controller';
+import { ReportFile } from './entities/report-file.entity';
+import { JobProducerService } from './services/job-producer.service';
+import { ResultConsumerService } from './services/result-consumer.service';
+import { VerificationService } from './services/verification.service';
+import { RabbitmqModule } from '../../shared/rabbitmq/rabbitmq.module';
+import { DocConfigModule } from '../doc-config/doc-config.module';
+import { Submission } from '../submissions/entities/submission.entity';
+import { StorageModule } from '../../common/modules/storage.module';
+
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([ReportFile, Submission]),
+    RabbitmqModule,
+    DocConfigModule,
+    StorageModule,
+  ],
+  controllers: [ReportFileController],
+  providers: [
+    ReportFileService,
+    JobProducerService,
+    ResultConsumerService,
+    VerificationService,
+  ],
+  exports: [ReportFileService, VerificationService],
+})
+export class ReportFileModule { }

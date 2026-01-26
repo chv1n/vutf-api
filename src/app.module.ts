@@ -37,6 +37,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     ...AppModules,
 
 
+
   ],
   controllers: [AppController],
   providers: [AppService],

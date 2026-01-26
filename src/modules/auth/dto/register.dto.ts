@@ -3,6 +3,7 @@ import {
     IsNotEmpty,
     Matches,
     MinLength,
+    IsNumber,
 } from 'class-validator';
 import { Match } from '../../../common/decorators/match.decorator';
 
@@ -52,4 +53,8 @@ export class RegisterDto {
         message: 'เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก',
     })
     phone: string;
+
+    @IsNotEmpty({ message: 'กรุณาระบุกลุ่มเรียน' })
+    @IsNumber({}, { message: 'รหัสกลุ่มเรียนต้องเป็นตัวเลข' })
+    sectionId: number;
 }

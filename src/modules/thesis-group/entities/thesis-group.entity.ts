@@ -1,3 +1,4 @@
+// src/modules/thesis-group/entities/thesis-group.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -14,6 +15,13 @@ import { UserAccount } from '../../users/entities/user-account.entity';
 import { AdvisorAssignment } from '../../advisor-assignment/entities/advisor-assignment.entity';
 import { Submission } from '../../submissions/entities/submission.entity';
 
+export enum ThesisGroupStatus {
+  INCOMPLETE = 'incomplete', // กลุ่มยังไม่สมบูรณ์ (สมาชิกยังไม่ครบ/ยังไม่ตอบรับ)
+  PENDING = 'pending',     // รออนุมัติ
+  APPROVED = 'approved',   // อนุมัติแล้ว
+  REJECTED = 'rejected',   // ปฏิเสธ
+}
+
 @Entity('thesis_group')
 export class ThesisGroup {
   @PrimaryGeneratedColumn('uuid')
@@ -23,8 +31,18 @@ export class ThesisGroup {
   @JoinColumn({ name: 'created_by' })
   created_by: UserAccount;
 
-  @Column({ default: false })
-  status: boolean;
+  @Column({
+    type: 'enum',
+    enum: ThesisGroupStatus,
+    default: ThesisGroupStatus.INCOMPLETE,
+  })
+  status: ThesisGroupStatus;
+
+  @Column({ type: 'timestamp', nullable: true })
+  approved_at: Date | null;
+
+  @Column({ type: 'text', nullable: true })
+  rejection_reason: string | null;
 
   @CreateDateColumn()
   created_at: Date;
