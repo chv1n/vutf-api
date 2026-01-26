@@ -66,6 +66,17 @@ export class SubmissionsService {
   }
 
   /**
+   * Get status summary for polling (lightweight)
+   * Returns only the count of IN_PROGRESS submissions
+   */
+  async getStatusSummary(): Promise<{ inProgressCount: number }> {
+    const count = await this.submissionRepo.count({
+      where: { status: SubmissionStatus.IN_PROGRESS },
+    });
+    return { inProgressCount: count };
+  }
+
+  /**
    * Create or update a submission
    */
   async createSubmission(
@@ -160,7 +171,7 @@ export class SubmissionsService {
       const dtoResponse = SubmissionResponseDto.fromEntity(reloaded);
 
       const { url, downloadUrl } = await this.generateFileUrls(reloaded.storagePath, reloaded.fileName);
-      
+
       dtoResponse.fileUrl = url;
       dtoResponse.downloadUrl = downloadUrl;
 
@@ -375,7 +386,8 @@ export class SubmissionsService {
       .leftJoinAndSelect('submission.inspectionRound', 'inspectionRound')
       .leftJoinAndSelect('submission.submitter', 'submitter')
       .leftJoinAndSelect('submitter.student', 'student')
-      .leftJoinAndSelect('submission.group', 'group');
+      .leftJoinAndSelect('submission.group', 'group')
+      .leftJoinAndSelect('submission.report_files', 'report_files');
 
     // --- Search Logic ---
     if (search) {
@@ -425,7 +437,7 @@ export class SubmissionsService {
 
         file: {
           name: item.fileName,
-          url: url || item.fileUrl,          
+          url: url || item.fileUrl,
           downloadUrl: downloadUrl || item.fileUrl,
           type: item.mimeType,
           size: this.formatBytes(item.fileSize),
@@ -454,7 +466,8 @@ export class SubmissionsService {
 
         submittedAt: item.submittedAt,
         status: item.status,
-        canVerify: item.status === 'PENDING',
+        verificationCount: item.report_files?.length || 0,
+        canVerify: item.status !== 'IN_PROGRESS', // Allow re-verify except when in progress
       };
     }));
 
