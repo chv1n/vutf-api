@@ -1,4 +1,3 @@
-// src/modules/users/users.service.ts
 import * as bcrypt from 'bcrypt';
 import {
   Injectable,
@@ -43,52 +42,45 @@ export class UsersService {
   }
 
   async findAllUsers(filterDto: GetUsersFilterDto) {
-    const { search, role, page = 1, limit = 10, academicYear, term, sectionId } = filterDto;
+    const { search, role, page = 1, limit = 10 } = filterDto;
+
     const query = this.usersRepository.createQueryBuilder('user');
 
     query.leftJoinAndSelect('user.student', 'student');
-    query.leftJoinAndSelect('student.section', 'section');
     query.leftJoinAndSelect('user.instructor', 'instructor');
 
     if (role && role !== UserRoleFilter.ALL) {
       query.andWhere('user.role = :role', { role });
     }
 
-    // Logic การกรอง Section/Year/Term (ทำงานเฉพาะเมื่อส่งค่ามา)
-    // การเช็ค user.role === 'student' อาจจะไม่จำเป็นถ้า Frontend ส่งค่ามาเฉพาะตอนอยู่แท็บ Student
-    if (role === 'student') {
-      if (academicYear) {
-        query.andWhere('section.academic_year = :academicYear', { academicYear });
-      }
-
-      if (term) {
-        query.andWhere('section.term = :term', { term });
-      }
-
-      if (sectionId) {
-        query.andWhere('section.section_id = :sectionId', { sectionId });
-      }
-    }
-
-    // --- Search  ---
     if (search) {
       query.andWhere(
         new Brackets((qb) => {
           qb.where('user.email ILIKE :search', { search: `%${search}%` })
-            .orWhere('student.first_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('student.last_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('student.student_code ILIKE :search', { search: `%${search}%` })
-
-            .orWhere('section.section_name ILIKE :search', { search: `%${search}%` })
-
-            .orWhere('instructor.first_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('instructor.last_name ILIKE :search', { search: `%${search}%` })
-            .orWhere('instructor.instructor_code ILIKE :search', { search: `%${search}%` });
+            .orWhere('student.first_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('student.last_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('student.student_code ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.first_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.last_name ILIKE :search', {
+              search: `%${search}%`,
+            })
+            .orWhere('instructor.instructor_code ILIKE :search', {
+              search: `%${search}%`,
+            });
         }),
       );
     }
 
     query.orderBy('user.createdAt', 'DESC');
+
     query.skip((page - 1) * limit);
     query.take(limit);
 
@@ -114,7 +106,7 @@ export class UsersService {
   async findOneUser(id: string) {
     const user = await this.usersRepository.findOne({
       where: { user_uuid: id },
-      relations: ['student', 'student.section', 'instructor'],
+      relations: ['student', 'instructor'],
     });
 
     if (!user) {
@@ -165,17 +157,17 @@ export class UsersService {
 
         // --- Logic เช็ค Instructor ID ซ้ำ ---
         if (dto.instructorCode) {
-          // เช็คว่ารหัสที่ส่งมา ซ้ำกับคนอื่นในระบบไหม?
-          const existingInstructor = await this.instructorRepository.findOne({
-            where: { instructor_code: dto.instructorCode }
-          });
+            // เช็คว่ารหัสที่ส่งมา ซ้ำกับคนอื่นในระบบไหม?
+            const existingInstructor = await this.instructorRepository.findOne({
+                where: { instructor_code: dto.instructorCode }
+            });
 
-          // ถ้าเจอคนใช้รหัสนี้ และคนนั้น "ไม่ใช่" คนที่เรากำลังแก้ไขอยู่
-          if (existingInstructor && existingInstructor.instructor_uuid !== user.instructor.instructor_uuid) {
-            throw new ConflictException(`รหัสอาจารย์ "${dto.instructorCode}" มีอยู่ในระบบแล้ว`);
-          }
+            // ถ้าเจอคนใช้รหัสนี้ และคนนั้น "ไม่ใช่" คนที่เรากำลังแก้ไขอยู่
+            if (existingInstructor && existingInstructor.instructor_uuid !== user.instructor.instructor_uuid) {
+                throw new ConflictException(`รหัสอาจารย์ "${dto.instructorCode}" มีอยู่ในระบบแล้ว`);
+            }
 
-          user.instructor.instructor_code = dto.instructorCode;
+            user.instructor.instructor_code = dto.instructorCode;
         }
         await queryRunner.manager.save(user.instructor);
       }

@@ -1,5 +1,5 @@
 // src/modules/users/dto/setup-student-profile.dto.ts
-import { IsNotEmpty, IsString, MinLength, IsNumber } from 'class-validator';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 export class SetupStudentProfileDto {
   @IsString()
@@ -24,8 +24,4 @@ export class SetupStudentProfileDto {
 
   @IsString()
   phone: string;
-
-  @IsNumber()
-  @IsNotEmpty()
-  section_id: number;
 }

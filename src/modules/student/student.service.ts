@@ -1,4 +1,3 @@
-// src/modules/student/student.service.ts
 import {
   Injectable,
   ConflictException,
@@ -17,7 +16,6 @@ import { Student } from '../users/entities/student.entity';
 import { InviteStudentsDto } from './dto/invite-students.dto';
 import { SetupStudentProfileDto } from './dto/setup-student-profile.dto';
 import { GetStudentsQueryDto } from './dto/get-students-query.dto';
-import { UpdateStudentProfileDto } from './dto/update-student-profile.dto';
 
 import { MailService } from '../../shared/services/mail.service';
 import { QueryHelper, PaginatedResponse } from '../../common/helpers';
@@ -112,8 +110,6 @@ export class StudentService {
     email: student.user?.email || null,
     is_active: student.user?.isActive || false,
     create_at: student.create_at,
-    sectionId: student.section?.section_id,
-    sectionName: student.section?.section_name,
   });
 
   async studentRegister(
@@ -124,7 +120,6 @@ export class StudentService {
       firstName: string;
       lastName: string;
       phone: string;
-      sectionId: number;
     },
   ): Promise<UserAccount> {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -167,7 +162,6 @@ export class StudentService {
         existingStudent.last_name = studentData.lastName;
         existingStudent.phone = studentData.phone;
         existingStudent.student_code = formattedStudentCode;
-        existingStudent.section_id = studentData.sectionId;
         await queryRunner.manager.save(existingStudent);
       } else {
         const student = queryRunner.manager.create(Student, {
@@ -177,7 +171,6 @@ export class StudentService {
           last_name: studentData.lastName,
           phone: studentData.phone,
           student_code: formattedStudentCode,
-          section_id: studentData.sectionId,
         });
         await queryRunner.manager.save(student);
       }
@@ -306,7 +299,6 @@ export class StudentService {
         first_name: dto.firstName,
         last_name: dto.lastName,
         phone: dto.phone,
-        section_id: dto.section_id,
       });
 
       await queryRunner.manager.save(student);
@@ -323,50 +315,5 @@ export class StudentService {
     } finally {
       await queryRunner.release();
     }
-  }
-
-  // ----------------------------------------------------------------
-  // 📍 Student Self-Service Features
-  // ----------------------------------------------------------------
-
-  /**
-   * ดึงข้อมูล Profile ของนักศึกษาที่ Login อยู่
-   * @param userId user_uuid จาก JWT Payload
-   */
-  async getProfile(userId: string): Promise<StudentResponse> {
-    const student = await this.studentRepository.findOne({
-      where: { user_uuid: userId },
-      relations: ['user', 'section'],
-    });
-
-    if (!student) {
-      throw new NotFoundException('ไม่พบข้อมูลนักศึกษาในระบบ');
-    }
-
-    return this.mapToResponse(student);
-  }
-
-  /**
-   * แก้ไขข้อมูลส่วนตัวของนักศึกษา (เฉพาะ field ที่อนุญาต)
-   * @param userId user_uuid จาก JWT Payload
-   * @param dto ข้อมูลที่ต้องการแก้ไข
-   */
-  async updateProfile(userId: string, dto: UpdateStudentProfileDto): Promise<StudentResponse> {
-    const student = await this.studentRepository.findOne({
-      where: { user_uuid: userId },
-      relations: ['user', 'section']
-    });
-
-    if (!student) {
-      throw new NotFoundException('ไม่พบข้อมูลนักศึกษา');
-    }
-
-    if (dto.prefixName) student.prefix_name = dto.prefixName;
-    if (dto.firstName) student.first_name = dto.firstName;
-    if (dto.lastName) student.last_name = dto.lastName;
-    if (dto.phone) student.phone = dto.phone;
-
-    const updatedStudent = await this.studentRepository.save(student);
-    return this.mapToResponse(updatedStudent);
   }
 }

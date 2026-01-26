@@ -1,4 +1,3 @@
-// src/modules/group-member/group-member.controller.ts
 import { Controller, UseGuards, Req, Put, Param, Patch, Body, Get, Post, Delete } from '@nestjs/common';
 import { GroupMemberService } from './group-member.service';
 import { AuthGuard } from '@nestjs/passport';

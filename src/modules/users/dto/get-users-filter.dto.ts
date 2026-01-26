@@ -28,13 +28,4 @@ export class GetUsersFilterDto {
   @IsInt()
   @Min(1)
   limit?: number = 10; // จำนวนต่อหน้า (Default 10)
-
-  @IsOptional()
-  academicYear?: string;
-
-  @IsOptional()
-  term?: string; 
-
-  @IsOptional()
-  sectionId?: number;
 }

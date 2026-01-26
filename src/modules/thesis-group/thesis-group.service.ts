@@ -1,14 +1,13 @@
-// src/modules/thesis-group/thesis-group.service.ts
 import { NotFoundException, Injectable, ConflictException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CreateThesisGroupDto } from './dto/create-thesis-group.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ThesisGroup, ThesisGroupStatus } from './entities/thesis-group.entity';
-import { EntityManager, Repository, IsNull, Not } from 'typeorm';
+import { ThesisGroup } from './entities/thesis-group.entity';
+import { EntityManager, Repository } from 'typeorm';
 import { DataSource } from 'typeorm';
 import { GroupMemberService } from '../group-member/group-member.service';
 import { AdvisorAssignmentService } from '../advisor-assignment/advisor-assignment.service';
 import { ThesisService } from '../thesis/thesis.service';
-import { Thesis, ThesisStatus } from '../thesis/entities/thesis.entity';
+import { Thesis } from '../thesis/entities/thesis.entity';
 import { CreateGroupMemberDto } from '../group-member/dto/create-group-member.dto';
 import { UsersService } from '../users/users.service';
 import { GroupMemberRole } from '../group-member/enum/group-member-role.enum';
@@ -28,9 +27,6 @@ export class ThesisGroupService {
   ) { }
 
   async createFullThesis(dto: CreateThesisGroupDto, userId: string) {
-
-    await this.validateStudentCanCreateGroup(userId);
-
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -51,8 +47,6 @@ export class ThesisGroupService {
         memberRoleOwnerAdded,
       );
 
-      await this.groupMemberService.updateGroupStatus(group.group_id, manager);
-
       const advisor = await this.advisorService.createAdvisor(
         manager,
         group.group_id,
@@ -66,53 +60,6 @@ export class ThesisGroupService {
       this.handleDatabaseError(err);
     } finally {
       await queryRunner.release();
-    }
-  }
-
-  // ============ Validation Methods ============
-
-  /**
-   * ตรวจสอบว่านักศึกษาสามารถสร้างกลุ่มใหม่ได้หรือไม่
-   * เงื่อนไข: ต้องไม่มีกลุ่มที่สถานะวิทยานิพนธ์ไม่ใช่ FAILED และยังไม่ถูกลบ (Soft Delete)
-   */
-  private async validateStudentCanCreateGroup(userId: string): Promise<void> {
-    // ดึงข้อมูล User เพื่อหา student_uuid
-    const user = await this.usersService.findById(userId);
-    if (!user || !user.student) {
-      throw new NotFoundException('ไม่พบข้อมูลนักศึกษา');
-    }
-
-    const studentUuid = user.student.student_uuid;
-
-    // ค้นหากลุ่มที่นักศึกษาคนนี้เป็นสมาชิก (Active Group)
-    // เงื่อนไขกลุ่มที่ถือว่า "มีอยู่แล้ว":
-    // 1. นักศึกษาเป็นสมาชิกในกลุ่มนั้น (ทุก Role) และสมาชิกภาพยังไม่ถูกลบ
-    // 2. วิทยานิพนธ์ในกลุ่มนั้นยังไม่ถูกลบ (delete_at IS NULL)
-    // 3. สถานะวิทยานิพนธ์ไม่ใช่ FAILED
-    const existingActiveGroup = await this.thesisGroupRepository.findOne({
-      where: {
-        members: {
-          student_uuid: studentUuid,
-          deleted_at: IsNull(),
-          invitation_status: Not(InvitationStatus.REJECTED),
-        },
-        thesis: {
-          delete_at: IsNull(),
-          status: Not(ThesisStatus.FAILED),
-        },
-      },
-      relations: ['thesis'],
-    });
-
-    if (existingActiveGroup) {
-      const memberInfo = existingActiveGroup.members.find(m => m.student_uuid === studentUuid);
-      const statusMsg = memberInfo?.invitation_status === InvitationStatus.PENDING 
-        ? 'กำลังรอการตอบรับ' 
-        : 'เป็นสมาชิกอยู่';
-
-      throw new ConflictException(
-        `คุณมีกลุ่มโครงงาน "${existingActiveGroup.thesis.thesis_name_th}" ที่${statusMsg} ไม่สามารถสร้างกลุ่มใหม่ได้`,
-      );
     }
   }
 
@@ -165,7 +112,7 @@ export class ThesisGroupService {
     const group = manager.create(ThesisGroup, {
       created_by: { user_uuid: userId },
       thesis: thesis,
-      status: ThesisGroupStatus.INCOMPLETE,
+      status: false, // default false, becomes true when all members approved
     });
     const savedThesisGroup = await manager.save(group);
     return savedThesisGroup;
@@ -181,7 +128,6 @@ export class ThesisGroupService {
       student_uuid: ownerStudent.student.student_uuid,
       role: GroupMemberRole.OWNER,
       invitation_status: InvitationStatus.APPROVED,
-      approved_at: new Date(),
     };
     const addedOwner = [ownerMember, ...group_member];
     return addedOwner;
@@ -194,48 +140,23 @@ export class ThesisGroupService {
     groupId: string,
     dto: UpdateThesisDto,
   ): Promise<{ message: string }> {
-    // ตรวจสอบสิทธิ์ความเป็นเจ้าของกลุ่ม
+    // Validate owner permission
     await this.groupMemberService.validateIsOwner(userId, groupId);
 
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    // Get group with thesis
+    const group = await this.thesisGroupRepository.findOne({
+      where: { group_id: groupId },
+      relations: ['thesis'],
+    });
 
-    try {
-      const manager = queryRunner.manager;
-
-      // ดึงข้อมูลกลุ่มพร้อมข้อมูลวิทยานิพนธ์
-      const group = await manager.findOne(ThesisGroup, {
-        where: { group_id: groupId },
-        relations: ['thesis'],
-      });
-
-      if (!group || !group.thesis) {
-        throw new NotFoundException('Group or thesis not found');
-      }
-
-      // อัปเดตข้อมูลรายละเอียดวิทยานิพนธ์
-      Object.assign(group.thesis, dto);
-      await manager.save(group.thesis);
-
-      // บังคับล้างสถานะการปฏิเสธ และตั้งสถานะกลุ่มเป็น PENDING เพื่อรออนุมัติใหม่
-      await manager.getRepository(ThesisGroup).update(groupId, {
-        status: ThesisGroupStatus.PENDING,
-        rejection_reason: null,
-        approved_at: null,
-      });
-
-      // ตรวจสอบสถานะสมาชิกอีกครั้งเพื่อให้มั่นใจว่าสถานะกลุ่มถูกต้องตามเงื่อนไข
-      await this.groupMemberService.updateGroupStatus(groupId, manager);
-
-      await queryRunner.commitTransaction();
-      return { message: 'Thesis updated and resubmitted for approval successfully' };
-    } catch (err) {
-      await queryRunner.rollbackTransaction();
-      throw err;
-    } finally {
-      await queryRunner.release();
+    if (!group || !group.thesis) {
+      throw new NotFoundException('Group or thesis not found');
     }
+
+    // Update thesis
+    await this.thesisService.updateThesis(group.thesis.thesis_id, dto);
+
+    return { message: 'Thesis updated successfully' };
   }
 
   async getThesisGroupById(groupId: string): Promise<ThesisGroup> {
@@ -257,16 +178,12 @@ export class ThesisGroupService {
         group_id: true,
         status: true,
         created_at: true,
-        rejection_reason: true,
         thesis: {
           thesis_id: true,
           thesis_code: true,
           thesis_name_th: true,
           thesis_name_en: true,
           graduation_year: true,
-          course_type: true,
-          start_academic_year: true,
-          start_term: true,
         },
         members: {
           member_id: true,
@@ -308,5 +225,4 @@ export class ThesisGroupService {
 
     return group;
   }
-
 }

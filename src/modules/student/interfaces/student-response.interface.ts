@@ -14,6 +14,4 @@ export interface StudentResponse {
     email: string | null;
     is_active: boolean;
     create_at: Date;
-    sectionId?: number; 
-    sectionName?: string;
 }

@@ -1,4 +1,3 @@
-// src/modules/thesis/thesis.service.ts
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
@@ -30,19 +29,6 @@ export class ThesisService {
 
     Object.assign(thesis, dto);
     return await this.thesisRepo.save(thesis);
-  }
-
-  async removeThesis(thesisId: string): Promise<{ message: string }> {
-    const thesis = await this.thesisRepo.findOneBy({ thesis_id: thesisId });
-
-    if (!thesis) {
-      throw new NotFoundException('ไม่พบข้อมูลวิทยานิพนธ์ที่ต้องการลบ');
-    }
-
-    // ใช้ softDelete เพื่อให้ข้อมูลยังอยู่ใน DB แต่มีค่าใน delete_at
-    await this.thesisRepo.softDelete(thesisId);
-
-    return { message: 'ลบข้อมูลวิทยานิพนธ์เรียบร้อยแล้ว (Soft Delete)' };
   }
 }
 

@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThanOrEqual, MoreThan, LessThan, ILike, Not } from 'typeorm';
+import { Repository, LessThanOrEqual, MoreThan, LessThan, ILike } from 'typeorm';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CreateInspectionRoundDto } from './dto/create-inspection_round.dto';
 import { UpdateInspectionRoundDto } from './dto/update-inspection_round.dto';
@@ -114,27 +114,11 @@ export class InspectionRoundService {
   }
 
   async create(createDto: CreateInspectionRoundDto): Promise<InspectionRound> {
-    const {
+    const { 
       title, description, startDate, endDate,
       academicYear, term, roundNumber, courseType,
       status, isActive
     } = createDto;
-
-    const existingRound = await this.inspectionRoundRepository.findOne({
-      where: {
-        academicYear,
-        term,
-        roundNumber,
-        courseType,
-        isActive: true,
-      },
-    });
-
-    if (existingRound) {
-      throw new BadRequestException(
-        `รอบการส่งนี้มีอยู่แล้ว: ปี ${academicYear} เทอม ${term} รอบที่ ${roundNumber} (${courseType})`
-      );
-    }
 
     const startUTC = this.toUtcFromThai(startDate);
     const endUTC = this.toUtcFromThai(endDate);
@@ -144,10 +128,10 @@ export class InspectionRoundService {
     }
 
     const newRound = this.inspectionRoundRepository.create({
-      academicYear,
-      term,
-      roundNumber,
-      courseType,
+      academicYear, 
+      term,         
+      roundNumber,  
+      courseType,   
       title,
       description,
       startDate: startUTC,
@@ -169,43 +153,21 @@ export class InspectionRoundService {
 
   async update(id: number, updateDto: UpdateInspectionRoundDto): Promise<InspectionRound> {
     const existingRound = await this.findOne(id);
-
+    
     const updateData: any = { ...updateDto };
 
-    const checkYear = updateDto.academicYear ?? existingRound.academicYear;
-    const checkTerm = updateDto.term ?? existingRound.term;
-    const checkRoundNumber = updateDto.roundNumber ?? existingRound.roundNumber;
-    const checkCourseType = updateDto.courseType ?? existingRound.courseType;
-
-    const duplicateCheck = await this.inspectionRoundRepository.findOne({
-      where: {
-        academicYear: checkYear,
-        term: checkTerm,
-        roundNumber: checkRoundNumber,
-        courseType: checkCourseType,
-        isActive: true,
-        inspectionId: Not(id),
-      },
-    });
-
-    if (duplicateCheck) {
-      throw new BadRequestException(
-        `ไม่สามารถแก้ไขได้: ข้อมูลปี ${checkYear} เทอม ${checkTerm} รอบที่ ${checkRoundNumber} (${checkCourseType}) มีอยู่แล้วในรายการอื่น`
-      );
-    }
-
     if (updateDto.startDate) {
-      updateData.startDate = this.toUtcFromThai(updateDto.startDate);
+        updateData.startDate = this.toUtcFromThai(updateDto.startDate);
     }
     if (updateDto.endDate) {
-      updateData.endDate = this.toUtcFromThai(updateDto.endDate);
+        updateData.endDate = this.toUtcFromThai(updateDto.endDate);
     }
 
     const startToCheck = updateData.startDate || existingRound.startDate;
     const endToCheck = updateData.endDate || existingRound.endDate;
 
     if (new Date(startToCheck) > new Date(endToCheck)) {
-      throw new BadRequestException('Start date cannot be later than End date');
+        throw new BadRequestException('Start date cannot be later than End date');
     }
 
     await this.inspectionRoundRepository.update(id, updateData);
