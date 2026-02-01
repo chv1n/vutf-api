@@ -8,5 +8,6 @@ export interface JobMessage {
     file_url: string;
     file_name: string;
     config: DocumentConfigData;
+    attempt: number;
     created_at: string;
 }

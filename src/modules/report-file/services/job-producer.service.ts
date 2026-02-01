@@ -23,6 +23,7 @@ export class JobProducerService {
         fileUrl: string,
         fileName: string,
         config: DocumentConfigData,
+        attempt: number,
     ): Promise<string> {
         const jobId = uuidv4();
 
@@ -32,6 +33,7 @@ export class JobProducerService {
             file_url: fileUrl,
             file_name: fileName,
             config,
+            attempt,
             created_at: new Date().toISOString(),
         };
 
@@ -41,7 +43,7 @@ export class JobProducerService {
             message,
         );
 
-        this.logger.log(`Job ${jobId} sent for submission ${submissionId}`);
+        this.logger.log(`Job ${jobId} sent for submission ${submissionId} (Attempt #${attempt})`);
 
         return jobId;
     }

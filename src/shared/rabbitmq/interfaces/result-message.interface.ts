@@ -7,7 +7,9 @@ export interface ResultMessage {
     submission_id: number;
     status: ResultStatus;
     result_file_url: string | null;
+    result_csv_url?: string | null;
     result_file_name: string | null;
+    result_file_size?: number;
     error_message: string | null;
     completed_at: string;
 }

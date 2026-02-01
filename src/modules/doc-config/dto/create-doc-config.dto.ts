@@ -5,6 +5,7 @@ import {
     IsNumber,
     ValidateNested,
     Min,
+    IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -71,6 +72,26 @@ export class IndentRulesConfigDto {
     tolerance: number;
 }
 
+export class CheckListConfigDto {
+    @IsBoolean()
+    check_font: boolean;
+
+    @IsBoolean()
+    check_margin: boolean;
+
+    @IsBoolean()
+    check_section_seq: boolean;
+
+    @IsBoolean()
+    check_page_seq: boolean;
+
+    @IsBoolean()
+    check_indentation: boolean;
+
+    @IsBoolean()
+    check_spacing: boolean;
+}
+
 export class DocumentConfigDataDto {
     @ValidateNested()
     @Type(() => MarginConfigDto)
@@ -83,6 +104,10 @@ export class DocumentConfigDataDto {
     @ValidateNested()
     @Type(() => IndentRulesConfigDto)
     indent_rules: IndentRulesConfigDto;
+
+    @ValidateNested()
+    @Type(() => CheckListConfigDto)
+    check_list: CheckListConfigDto;
 }
 
 // For single config, just use the config data directly

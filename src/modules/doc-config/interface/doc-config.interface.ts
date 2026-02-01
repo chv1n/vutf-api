@@ -23,8 +23,18 @@ export interface IndentRulesConfig {
     tolerance: number;
 }
 
+export interface CheckListConfig {
+    check_font: boolean;
+    check_margin: boolean;
+    check_section_seq: boolean;
+    check_page_seq: boolean;
+    check_indentation: boolean;
+    check_spacing: boolean;
+}
+
 export interface DocumentConfigData {
     margin_mm: MarginConfig;
     font: FontConfig;
     indent_rules: IndentRulesConfig;
+    check_list: CheckListConfig;
 }

@@ -11,10 +11,11 @@ import { RabbitmqModule } from '../../shared/rabbitmq/rabbitmq.module';
 import { DocConfigModule } from '../doc-config/doc-config.module';
 import { Submission } from '../submissions/entities/submission.entity';
 import { StorageModule } from '../../common/modules/storage.module';
+import { GroupMember } from '../group-member/entities/group-member.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ReportFile, Submission]),
+    TypeOrmModule.forFeature([ReportFile, Submission, GroupMember]),
     RabbitmqModule,
     DocConfigModule,
     StorageModule,

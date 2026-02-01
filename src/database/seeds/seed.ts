@@ -131,8 +131,8 @@ async function run() {
         },
         font: {
           name: 'sarabun',
-          size: 15.0,
-          tolerance: 1.0,
+          size: 16.0,
+          tolerance: 0.5,
         },
         indent_rules: {
           paragraph: 15.0,
@@ -141,8 +141,16 @@ async function run() {
           sub_section_text_2: 27.6,
           bullet_point: 25.0,
           bullet_text: 30.0,
-          tolerance: 1.0,
+          tolerance: 2.0,
         },
+        check_list: {
+          check_font: true,
+          check_margin: true,
+          check_section_seq: true,
+          check_page_seq: false,
+          check_indentation: true,
+          check_spacing: false
+        }
       },
     });
     console.log('Created DocConfig');

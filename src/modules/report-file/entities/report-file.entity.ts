@@ -1,5 +1,8 @@
+// src/modules/report-file/entites/report-file.entity.ts
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Submission } from '../../submissions/entities/submission.entity';
+import { UserAccount } from '../../users/entities/user-account.entity';
+import { VerificationResultStatus, InstructorReviewStatus } from '../enum/report-status.enum';
 
 @Entity('report_file')
 export class ReportFile {
@@ -9,17 +12,34 @@ export class ReportFile {
     @Column()
     file_url: string;
 
+    @Column({ type: 'text', nullable: true }) 
+    csv_url: string | null;
+
     @Column()
     file_name: string;
 
     @Column()
     file_type: string;
 
+    @Column({ name: 'file_size', type: 'int', nullable: true })
+    file_size: number;
+
     @Column()
     submission_id: number;
 
-    @Column({ default: 'active' })
-    status: string;
+    @Column({
+        type: 'enum',
+        enum: VerificationResultStatus,
+        nullable: true
+    })
+    verification_status: VerificationResultStatus;
+
+    @Column({
+        type: 'enum',
+        enum: InstructorReviewStatus,
+        default: InstructorReviewStatus.PENDING
+    })
+    review_status: InstructorReviewStatus;
 
     @CreateDateColumn()
     reported_at: Date;
@@ -28,9 +48,13 @@ export class ReportFile {
     comment: string;
 
     @Column({ nullable: true })
-    comment_by: number;
+    comment_by: string;
 
     @ManyToOne(() => Submission, (submission) => submission.report_files)
     @JoinColumn({ name: 'submission_id' })
     submission: Submission;
+
+    @ManyToOne(() => UserAccount)
+    @JoinColumn({ name: 'comment_by' })
+    commenter: UserAccount;
 }
