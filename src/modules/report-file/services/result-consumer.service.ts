@@ -6,6 +6,7 @@ import { RabbitSubscribe } from '@golevelup/nestjs-rabbitmq';
 import { ReportFileService } from '../report-file.service';
 import { Submission } from '../../submissions/entities/submission.entity';
 import { SubmissionStatus } from '../../submissions/enum/submission-status.enum';
+import { VerificationResultStatus } from '../enum/report-status.enum';
 import type { ResultMessage } from '../../../shared/rabbitmq/interfaces';
 
 @Injectable()
@@ -27,29 +28,49 @@ export class ResultConsumerService {
         this.logger.log(`Received result for job ${message.job_id}`);
 
         try {
-            if (message.status === 'completed') {
-                await this.reportFileService.createFromResult(message);
+            // ------------------------------------------------------------------
+            // CASE 1: Worker ทำงานจบสมบูรณ์ (Process Completed)
+            // ------------------------------------------------------------------
+            if (message.status === 'completed' && message.result_file_url) {
+                
+                // 1. วิเคราะห์ผลตรวจ (Grading) เพื่อบันทึกลง Report
+                // มี CSV = FAIL, ไม่มี CSV = PASS
+                const verificationResult = message.result_csv_url 
+                    ? VerificationResultStatus.FAIL 
+                    : VerificationResultStatus.PASS;
 
-                // Update submission status to COMPLETED
+                // 2. สร้าง Report File (บันทึกผล Pass/Fail ลงในตาราง report_files)
+                await this.reportFileService.createFromResult(message, verificationResult);
+
+                // 3. อัปเดต Submission Status (Process Status)
+                // ตรวจเสร็จแล้ว = COMPLETED เสมอ (ตามที่คุณต้องการ)
                 await this.submissionRepo.update(
                     { submissionId: message.submission_id },
                     { status: SubmissionStatus.COMPLETED }
                 );
 
-                this.logger.log(`Result saved for submission ${message.submission_id}`);
-            } else {
-                this.logger.error(
-                    `Job ${message.job_id} failed: ${message.error_message}`,
-                );
+                this.logger.log(`Job completed. Submission ${message.submission_id} marked as COMPLETED. Result: ${verificationResult}`);
+
+            } 
+            // ------------------------------------------------------------------
+            // CASE 2: Worker ทำงานล้มเหลว/Crash (Process Failed)
+            // ------------------------------------------------------------------
+            else {
+                const errorMessage = message.error_message || 'Unknown error';
+
+                this.logger.error(`Job ${message.job_id} failed: ${errorMessage}`);
+
+                // บันทึก Report เป็น ERROR
                 await this.reportFileService.markAsFailed(
                     message.submission_id,
-                    message.error_message || 'Unknown error',
+                    errorMessage,
+                    VerificationResultStatus.ERROR
                 );
 
-                // Reset submission status to PENDING on failure (allow retry)
+                // อัปเดต Submission Status เป็น FAILED
                 await this.submissionRepo.update(
                     { submissionId: message.submission_id },
-                    { status: SubmissionStatus.PENDING }
+                    { status: SubmissionStatus.FAILED }
                 );
             }
         } catch (error) {

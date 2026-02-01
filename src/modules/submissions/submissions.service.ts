@@ -8,7 +8,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In, Not } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Submission } from './entities/submission.entity';
 import { CreateSubmissionDto } from './dto/create-submission.dto';
@@ -224,8 +224,6 @@ export class SubmissionsService {
         'submitter.student',        // Student คนส่ง
         'thesis',                   // ข้อมูลโครงงาน
         'group',                    // ข้อมูลกลุ่ม
-        'group.members',
-        'group.members.student',
         'group.advisor',
         'group.advisor.instructor',
       ],
@@ -233,6 +231,16 @@ export class SubmissionsService {
 
     if (!submission) {
       throw new NotFoundException('Submission not found');
+    }
+
+    if (submission.group) {
+      submission.group.members = await this.groupMemberRepo.find({ 
+        where: {
+          group_id: submission.group.group_id,
+          invitation_status: Not(InvitationStatus.REJECTED), // Filter out REJECTED
+        },
+        relations: ['student'],
+      });
     }
 
     // 1. แปลง Entity เป็น DTO ก่อน (ค่า downloadUrl จะถูก set เป็น fileUrl เริ่มต้นใน fromEntity)
@@ -409,7 +417,7 @@ export class SubmissionsService {
     if (academicYear) query.andWhere('inspectionRound.academic_year = :year', { year: academicYear });
 
     if (courseType && courseType !== 'ALL') {
-      query.andWhere('inspectionRound.course_type = :courseType', { courseType });
+      query.andWhere('thesis.course_type = :courseType', { courseType });
     }
 
     if (status) {
