@@ -11,13 +11,21 @@ import { UsersModule } from '../users/users.module';
 import { InspectionRound } from '../inspection_round/entities/inspection_round.entity';
 import { Submission } from '../submissions/entities/submission.entity';
 import { StorageModule } from '../../common/modules/storage.module';
+import { ReportFileModule } from '../report-file/report-file.module'; 
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([AdvisorAssignment, GroupMember, ThesisGroup, InspectionRound, Submission]),
+    TypeOrmModule.forFeature([
+      AdvisorAssignment, 
+      GroupMember, 
+      ThesisGroup, 
+      InspectionRound, 
+      Submission
+    ]),
     GroupMemberModule,
     UsersModule,
     StorageModule,
+    ReportFileModule, 
   ],
   controllers: [AdvisorAssignmentController],
   providers: [AdvisorAssignmentService],

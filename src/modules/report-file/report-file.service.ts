@@ -43,7 +43,7 @@ export class ReportFileService {
         const urlObj = new URL(storagePath);
         let rawPath = decodeURIComponent(urlObj.pathname);
         if (rawPath.startsWith('/')) rawPath = rawPath.substring(1);
-        
+
         const marker = 'reports/';
         const index = rawPath.indexOf(marker);
         if (index !== -1) {
@@ -71,17 +71,17 @@ export class ReportFileService {
   // ==========================================
   // Helper ที่เรียกใช้ DTO
   // ==========================================
-    private async transformReport(item: ReportFile): Promise<ReportFileResponseDto> {
+  private async transformReport(item: ReportFile): Promise<ReportFileResponseDto> {
     // Generate URLs สำหรับ PDF
     const pdfUrls = await this.generateSignedUrlPair(item.file_url, item.file_name);
     
     // Generate URLs สำหรับ CSV (ถ้ามี)
     let csvUrls: { url: string; downloadUrl: string } | null = null;
     if (item.csv_url) {
-        // สร้างชื่อไฟล์ csv จากชื่อ pdf (เช่น report_abc.pdf -> report_abc.csv)
-        // หรือใช้ชื่อไฟล์แบบง่ายๆ เพราะตอน downloadUrl เรากำหนดชื่อปลายทางได้
-        const csvName = item.file_name.replace('.pdf', '.csv');
-        csvUrls = await this.generateSignedUrlPair(item.csv_url, csvName);
+      // สร้างชื่อไฟล์ csv จากชื่อ pdf (เช่น report_abc.pdf -> report_abc.csv)
+      // หรือใช้ชื่อไฟล์แบบง่ายๆ เพราะตอน downloadUrl เรากำหนดชื่อปลายทางได้
+      const csvName = item.file_name.replace('.pdf', '.csv');
+      csvUrls = await this.generateSignedUrlPair(item.csv_url, csvName);
     }
 
     return ReportFileResponseDto.fromEntity(item, pdfUrls, csvUrls);
@@ -307,7 +307,7 @@ export class ReportFileService {
     result: ResultMessage,
     verificationStatus: VerificationResultStatus
   ): Promise<ReportFile> {
-    
+
     const reportFile = this.reportFileRepository.create({
       submission_id: result.submission_id,
       file_url: result.result_file_url || '',
@@ -315,9 +315,9 @@ export class ReportFileService {
       file_name: result.result_file_name || '',
       file_type: 'pdf',
       file_size: result.result_file_size || 0,
-      
+
       verification_status: verificationStatus,
-      
+
       review_status: InstructorReviewStatus.PENDING,
     });
 
@@ -337,10 +337,121 @@ export class ReportFileService {
       comment: errorMessage,
 
       verification_status: status,
-      
+
       review_status: InstructorReviewStatus.PENDING,
     });
 
     return this.reportFileRepository.save(reportFile);
+  }
+
+  // ==========================================
+  // FOR STUDENT: Get only reviewed reports
+  // ==========================================
+  async findStudentReports(submissionId: number) {
+    const reports = await this.reportFileRepository.find({
+      where: {
+        submission_id: submissionId,
+        review_status: Not(InstructorReviewStatus.PENDING)
+      },
+      relations: ['commenter', 'commenter.instructor'],
+      order: { reported_at: 'DESC' },
+    });
+
+    return Promise.all(reports.map(async (item) => {
+      const pdfUrls = await this.generateSignedUrlPair(item.file_url, item.file_name);
+      let csvUrls: { url: string; downloadUrl: string } | null = null;
+      if (item.csv_url) {
+        const csvName = item.file_name.replace('.pdf', '.csv');
+        csvUrls = await this.generateSignedUrlPair(item.csv_url, csvName);
+      }
+
+      // ดึงชื่ออาจารย์จาก Relation ที่ Join มา
+      const instructorProfile = item.commenter?.instructor;
+      const instructorName = instructorProfile
+        ? `${instructorProfile.first_name} ${instructorProfile.last_name}`.trim()
+        : 'Unknown'; // กรณีหาไม่เจอ
+
+      return {
+        id: item.report_file_id,
+        file_name: item.file_name,
+        file_type: item.file_type,
+        file_size: item.file_size,
+        verification_status: item.verification_status,
+        review_status: item.review_status,
+        reported_at: item.reported_at,
+
+        comment: item.comment,
+        comment_by_id: item.comment_by,
+        comment_by_name: instructorName,
+
+        urls: {
+          pdf: pdfUrls,
+          csv: csvUrls
+        }
+      };
+    }));
+  }
+
+  // ==========================================
+  // Helper for Internal Service Communication
+  // ==========================================
+  /**
+   * ฟังก์ชันนี้ทำไว้ให้ Service อื่น (เช่น AdvisorAssignmentService) เรียกใช้
+   * เพื่อดึง Report ของหลายๆ กลุ่มพร้อมกันในครั้งเดียว (Bulk Fetch)
+   */
+  async getReportsByGroupIds(groupIds: string[]) {
+    if (!groupIds.length) return [];
+
+    // Query หา Report ที่อยู่ในกลุ่มเหล่านี้
+    const reports = await this.reportFileRepository.find({
+      where: {
+        submission: {
+          group: { group_id: In(groupIds) }
+        }
+      },
+      relations: [
+        'submission',
+        'submission.group',
+        'submission.inspectionRound',
+        // 'submission.student',
+        'commenter', // Join ผู้ตรวจเพื่อเอาชื่อ
+        'commenter.instructor'
+      ],
+      order: { reported_at: 'DESC' }
+    });
+
+    // Transform ข้อมูล
+    return Promise.all(reports.map(async (report) => {
+      // Logic สร้าง Signed URL
+      const pdfUrls = await this.generateSignedUrlPair(report.file_url, report.file_name);
+
+      let csvUrls = { url: report.csv_url, downloadUrl: report.csv_url };
+      if (report.csv_url && !report.csv_url.startsWith('http')) {
+        const csvName = report.file_name.replace('.pdf', '.csv');
+        csvUrls = await this.generateSignedUrlPair(report.csv_url, csvName);
+      }
+
+      const instructorProfile = report.commenter?.instructor;
+      const instructorName = instructorProfile
+        ? `${instructorProfile.first_name} ${instructorProfile.last_name}`.trim()
+        : 'System';
+
+      return {
+        // Return ข้อมูลในรูปแบบที่ AdvisorService ต้องการ (GroupReportDto)
+        id: report.report_file_id,
+        groupId: report.submission.group.group_id, // *สำคัญ* ต้องส่ง ID กลุ่มกลับไปเพื่อใช้จับคู่
+        roundNumber: report.submission.inspectionRound.roundNumber,
+        attemptNumber: 1,
+        submittedAt: report.reported_at,
+        verificationStatus: report.verification_status,
+        reviewStatus: report.review_status,
+        fileName: report.file_name,
+        fileSize: report.file_size,
+        fileUrl: pdfUrls.url,
+        downloadUrl: pdfUrls.downloadUrl,
+        csvUrl: csvUrls.url,
+        senderName: report.submission.student ? `${report.submission.student.first_name}` : 'Unknown'
+      };
+    }));
   }
 }
