@@ -23,6 +23,7 @@ import { InspectionRound } from '../inspection_round/entities/inspection_round.e
 import { Submission } from '../submissions/entities/submission.entity';
 import { CourseType } from '../inspection_round/entities/inspection_round.entity';
 import { AdvisedGroupResponseDto, GroupProgressDto } from './dto/advised-group-response.dto';
+import { ReportFileService } from '../report-file/report-file.service';
 
 
 import type { IStorageService } from '../../common/interfaces/storage.interface';
@@ -45,6 +46,7 @@ export class AdvisorAssignmentService {
 
     private readonly groupMemberService: GroupMemberService,
     private readonly usersService: UsersService,
+    private readonly reportFileService: ReportFileService,
 
     @Inject(STORAGE_SERVICE)
     private readonly storageService: IStorageService,
@@ -334,7 +336,8 @@ export class AdvisorAssignmentService {
     const groupIds = assignments.map((a) => a.group_id);
 
     // 3. Prepare Parallel Data Fetching (ลดเวลา Response Time)
-    const [allRounds, submissions] = await Promise.all([
+    // [3] เพิ่มการเรียก reportFileService ใน Promise.all
+    const [allRounds, submissions, allReports] = await Promise.all([
       this.inspectionRoundRepository.find({
         where: { isActive: true },
         order: { roundNumber: 'ASC' },
@@ -344,6 +347,8 @@ export class AdvisorAssignmentService {
         relations: ['inspectionRound', 'group'],
         order: { submittedAt: 'DESC' }
       }),
+      // เรียก Service เพื่อดึง Report ของทุกกลุ่มที่เกี่ยวข้อง (Bulk Fetch)
+      this.reportFileService.getReportsByGroupIds(groupIds)
     ]);
 
     // 4. Map & Transform Data
@@ -409,6 +414,24 @@ export class AdvisorAssignmentService {
         };
       }));
 
+      let groupReports = allReports.filter(r => r.groupId === group.group_id);
+      groupReports.sort((a, b) => new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime());
+
+      const attemptCounters = new Map<number, number>();
+      const processedReports = groupReports.map(report => {
+        const round = report.roundNumber;
+        const currentCount = attemptCounters.get(round) || 0;
+        const newCount = currentCount + 1;
+        attemptCounters.set(round, newCount);
+
+        return {
+          ...report,
+          attemptNumber: newCount,
+        };
+      });
+
+      processedReports.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+
       // Return DTO
       return {
         groupId: group.group_id,
@@ -427,6 +450,7 @@ export class AdvisorAssignmentService {
             role: m.role,
           })),
         progress: groupSubmissions,
+        reports: processedReports,
       };
     }));
   }

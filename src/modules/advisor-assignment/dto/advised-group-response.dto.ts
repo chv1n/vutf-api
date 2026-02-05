@@ -1,4 +1,4 @@
-// import { ApiProperty } from '@nestjs/swagger'; // ถ้าใช้ Swagger (Optional)
+// src/modules/advisor-assignment/dto/advised-group-response.dto.ts
 
 export class GroupStudentDto {
   name: string;
@@ -20,6 +20,21 @@ export class GroupProgressDto {
   fileName: string | null;
 }
 
+export class GroupReportDto {
+  id: number;
+  roundNumber: number;
+  attemptNumber: number;
+  submittedAt: Date;
+  verificationStatus: string;
+  reviewStatus: string;
+  fileName: string;
+  fileSize: number;
+  fileUrl: string;
+  downloadUrl: string | null;
+  csvUrl: string | null;
+  senderName: string;
+}
+
 export class AdvisedGroupResponseDto {
   groupId: string;
   thesisCode: string;
@@ -32,4 +47,5 @@ export class AdvisedGroupResponseDto {
   
   students: GroupStudentDto[];
   progress: GroupProgressDto[];
+  reports: GroupReportDto[];
 }

@@ -95,4 +95,12 @@ export class ReportFileController {
     );
   }
 
+  /**
+   * สำหรับนักศึกษา: ดูผล Report เฉพาะที่อาจารย์ตรวจแล้ว
+   */
+  @Get('submission/:submissionId/student')
+  async findForStudent(@Param('submissionId', ParseIntPipe) submissionId: number) {
+    return this.reportFileService.findStudentReports(submissionId);
+  }
+
 }

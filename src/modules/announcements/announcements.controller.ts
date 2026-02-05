@@ -17,7 +17,7 @@ export class AnnouncementsController {
   constructor(private readonly announcementsService: AnnouncementsService) {}
 
   @Post()
-  @Roles('admin')
+  @Roles('admin','instructor')
   async create(@Body() createAnnouncementDto: CreateAnnouncementDto, @Res() res: Response) {
     const result = await this.announcementsService.create(createAnnouncementDto);
     return res.status(HttpStatus.CREATED).json({
@@ -51,7 +51,7 @@ export class AnnouncementsController {
   }
 
   @Put(':id')
-  @Roles('admin')
+  @Roles('admin','instructor')
   async update(
     @Param('id') id: string,
     @Body() updateAnnouncementDto: UpdateAnnouncementDto,
@@ -65,7 +65,7 @@ export class AnnouncementsController {
   }
 
   @Delete(':id')
-  @Roles('admin')
+  @Roles('admin','instructor')
   async remove(@Param('id') id: string, @Res() res: Response) {
     await this.announcementsService.remove(id);
     return res.status(HttpStatus.OK).json({
