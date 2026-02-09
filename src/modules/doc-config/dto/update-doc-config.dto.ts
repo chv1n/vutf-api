@@ -6,6 +6,7 @@ import {
     ValidateNested,
     Min,
     IsOptional,
+    IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -101,4 +102,9 @@ export class UpdateDocConfigDto {
     @ValidateNested()
     @Type(() => PartialIndentRulesConfigDto)
     indent_rules?: PartialIndentRulesConfigDto;
+
+    @IsOptional()
+    @IsArray()
+    @IsString({ each: true })
+    ignored_units?: string[];
 }

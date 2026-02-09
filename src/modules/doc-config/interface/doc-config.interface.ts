@@ -37,4 +37,5 @@ export interface DocumentConfigData {
     font: FontConfig;
     indent_rules: IndentRulesConfig;
     check_list: CheckListConfig;
+    ignored_units: string[];
 }

@@ -6,6 +6,7 @@ import {
     ValidateNested,
     Min,
     IsBoolean,
+    IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -108,6 +109,10 @@ export class DocumentConfigDataDto {
     @ValidateNested()
     @Type(() => CheckListConfigDto)
     check_list: CheckListConfigDto;
+
+    @IsArray()
+    @IsString({ each: true })
+    ignored_units: string[];
 }
 
 // For single config, just use the config data directly
