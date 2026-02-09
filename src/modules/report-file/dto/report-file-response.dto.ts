@@ -70,6 +70,7 @@ export class ContextDto {
 export class ReportFileResponseDto {
     id: number;
     file: FileDto;
+    originalFile: FileDto | null;
     csv: CsvDto | null;
     reviewer: ReviewerDto;
     commenter: ReviewerDto;
@@ -92,6 +93,7 @@ export class ReportFileResponseDto {
     static fromEntity(
         entity: ReportFile, 
         pdfUrls: { url: string; downloadUrl: string },
+        submissionPdfUrls: { url: string; downloadUrl: string } | null,
         csvUrls: { url: string; downloadUrl: string } | null
     ): ReportFileResponseDto {
         const dto = new ReportFileResponseDto();
@@ -109,6 +111,18 @@ export class ReportFileResponseDto {
             type: entity.file_type,
             size: entity.file_size || null,
         };
+
+        if (entity.submission && submissionPdfUrls) {
+            dto.originalFile = {
+                name: entity.submission.fileName || 'original.pdf',
+                url: submissionPdfUrls.url,
+                downloadUrl: submissionPdfUrls.downloadUrl,
+                type: entity.submission.mimeType,
+                size: entity.submission.fileSize || null,
+            };
+        } else {
+            dto.originalFile = null;
+        }
 
         // CSV Info 
         if (entity.csv_url && csvUrls) {

@@ -132,25 +132,39 @@ async function run() {
         font: {
           name: 'sarabun',
           size: 16.0,
-          tolerance: 0.5,
+          tolerance: 1,
         },
         indent_rules: {
           paragraph: 15.0,
-          sub_section_num: 15.0,
+          sub_section_num: 20.0,
           sub_section_text_1: 25.0,
           sub_section_text_2: 27.6,
           bullet_point: 25.0,
           bullet_text: 30.0,
-          tolerance: 2.0,
+          tolerance: 5.0,
         },
         check_list: {
           check_font: true,
           check_margin: true,
           check_section_seq: true,
-          check_page_seq: false,
+          check_page_seq: true,
           check_indentation: true,
           check_spacing: false
-        }
+        },
+        ignored_units: [
+            "m", "cm", "mm", "km", "nm",
+            "kg", "g", "mg",
+            "A", "mA", "kA",
+            "V", "kV", "mV",
+            "W", "kW", "MW",
+            "Hz", "kHz", "MHz", "GHz",
+            "J", "MJ", "kJ",
+            "ºC", "K", "F",
+            "N", "kN",
+            "Pa", "kPa", "MPa",
+            "bar", "atm",
+            "dB", "rpm"
+        ]
       },
     });
     console.log('Created DocConfig');

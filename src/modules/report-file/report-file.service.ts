@@ -75,6 +75,24 @@ export class ReportFileService {
     // Generate URLs สำหรับ PDF
     const pdfUrls = await this.generateSignedUrlPair(item.file_url, item.file_name);
     
+    // Generate URLs สำหรับ Original Submission PDF
+    let submissionUrls: { url: string; downloadUrl: string } | null = null;
+    if (item.submission && item.submission.storagePath) {
+        submissionUrls = await this.generateSignedUrlPair(
+            item.submission.storagePath, 
+            item.submission.fileName || 'original_submission.pdf'
+        );
+    } 
+    // Fallback: กรณีข้อมูลเก่าไม่มี storagePath ค่อยใช้ fileUrl
+    else if (item.submission && item.submission.fileUrl) {
+         // (Optional) อาจจะต้องแก้ generateSignedUrlPair ให้รองรับ path 'submissions/' ด้วยถ้าจำเป็น
+         // แต่ถ้าระบบใหม่มี storagePath ทุกตัว ใช้ข้างบนปลอดภัยกว่าครับ
+         submissionUrls = await this.generateSignedUrlPair(
+            item.submission.fileUrl, 
+            item.submission.fileName || 'original_submission.pdf'
+        );
+    }
+
     // Generate URLs สำหรับ CSV (ถ้ามี)
     let csvUrls: { url: string; downloadUrl: string } | null = null;
     if (item.csv_url) {
@@ -84,7 +102,7 @@ export class ReportFileService {
       csvUrls = await this.generateSignedUrlPair(item.csv_url, csvName);
     }
 
-    return ReportFileResponseDto.fromEntity(item, pdfUrls, csvUrls);
+    return ReportFileResponseDto.fromEntity(item, pdfUrls, submissionUrls, csvUrls);
   }
 
 
