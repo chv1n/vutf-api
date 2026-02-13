@@ -1,3 +1,4 @@
+// src/modules/inspection_round/entities/inspection_round.entity.ts
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, OneToMany } from 'typeorm';
 import { Submission } from '../../submissions/entities/submission.entity';
 

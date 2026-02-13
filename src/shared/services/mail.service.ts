@@ -51,4 +51,58 @@ export class MailService {
       `,
     });
   }
+
+  async sendUnsubmittedReminder(
+    emails: string[],
+    thesisTitle: string,
+    roundLabel: string,
+    deadline: string
+  ) {
+    await this.mailer.sendMail({
+      to: emails,
+      subject: `[Reminder] Thesis Submission Pending: ${thesisTitle}`,
+      html: `
+    <div style="font-family: 'Segoe UI', Tahoma, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px; color: #334155;">
+        <h1 style="color: #0f172a; font-size: 24px; font-weight: 700; margin-bottom: 24px; letter-spacing: -0.025em;">
+            Submission Reminder
+        </h1>
+        
+        <p style="font-size: 16px; line-height: 1.6; margin-bottom: 32px;">
+            Our records indicate that your group has not yet submitted the required documents for 
+            <span style="font-weight: 600; color: #1e40af;">${roundLabel}</span>.
+        </p>
+        
+        <div style="background-color: #f8fafc; border-radius: 12px; padding: 24px; border: 1px solid #f1f5f9;">
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.05em;">
+                    Thesis Title
+                </label>
+                <div style="font-size: 18px; line-height: 1.6; color: #1e293b; font-weight: 500;">
+                    ${thesisTitle}
+                </div>
+            </div>
+            
+            <div>
+                <label style="display: block; font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.05em;">
+                    Deadline
+                </label>
+                <div style="font-size: 16px; color: #ef4444; font-weight: 600;">
+                    ${deadline}
+                </div>
+            </div>
+        </div>
+
+        <p style="font-size: 15px; line-height: 1.6; color: #475569; margin-top: 32px;">
+            Please log in to the portal and complete your submission before the deadline to avoid any delays in your evaluation process.
+        </p>
+        
+        <div style="margin-top: 48px; padding-top: 24px; border-top: 1px solid #f1f5f9; text-align: center;">
+            <p style="font-size: 12px; color: #94a3b8; margin: 0;">
+                This is an automated system notification from Thesis Review System.
+            </p>
+        </div>
+    </div>
+  `,
+    });
+  }
 }

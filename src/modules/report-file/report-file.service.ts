@@ -13,6 +13,9 @@ import { STORAGE_SERVICE } from '../../common/interfaces/storage.interface';
 import { Submission } from '../submissions/entities/submission.entity';
 import { InvitationStatus } from '../group-member/enum/invitation-status.enum';
 import { GroupMember } from '../group-member/entities/group-member.entity';
+import { FileUrlService } from 'src/shared/services/file-url.service';
+import { InspectionRoundService } from '../inspection_round/inspection_round.service';
+
 
 @Injectable()
 export class ReportFileService {
@@ -20,6 +23,8 @@ export class ReportFileService {
   constructor(
     @InjectRepository(ReportFile)
     private readonly reportFileRepository: Repository<ReportFile>,
+    private readonly fileUrlService: FileUrlService,
+    private readonly inspectionRoundService: InspectionRoundService,
     @InjectRepository(Submission)
     private readonly submissionRepository: Repository<Submission>,
     @InjectRepository(GroupMember)
@@ -28,81 +33,26 @@ export class ReportFileService {
     private readonly storageService: IStorageService,
   ) { }
 
-  // ==========================================
-  // PRIVATE HELPER: Generate URL
-  // ==========================================
-  private async generateSignedUrlPair(storagePath: string, fileName: string): Promise<{ url: string; downloadUrl: string }> {
-    if (!storagePath) {
-      return { url: '', downloadUrl: '' };
-    }
+  private async transformReport(item: ReportFile, attemptNumber?: number): Promise<ReportFileResponseDto> {
+    // ใช้ Shared Service จัดการ PDF Report
+    const pdfUrls = await this.fileUrlService.generateSignedUrls(item.file_url, item.file_name);
 
-    let fileKey = storagePath;
-
-    if (storagePath.startsWith('http')) {
-      try {
-        const urlObj = new URL(storagePath);
-        let rawPath = decodeURIComponent(urlObj.pathname);
-        if (rawPath.startsWith('/')) rawPath = rawPath.substring(1);
-
-        const marker = 'reports/';
-        const index = rawPath.indexOf(marker);
-        if (index !== -1) {
-          fileKey = rawPath.substring(index);
-        } else {
-          fileKey = rawPath;
-        }
-      } catch (e) {
-        this.logger.warn(`Could not parse URL ${storagePath}, using original value.`);
-      }
-    }
-
-    try {
-      const [url, downloadUrl] = await Promise.all([
-        this.storageService.getFileUrl(fileKey, 3600, false), // View inline
-        this.storageService.getFileUrl(fileKey, 3600, true, fileName), // Force download
-      ]);
-      return { url, downloadUrl };
-    } catch (error) {
-      this.logger.error(`Failed to generate URLs for path ${storagePath}: ${error.message}`);
-      return { url: '', downloadUrl: '' };
-    }
-  }
-
-  // ==========================================
-  // Helper ที่เรียกใช้ DTO
-  // ==========================================
-  private async transformReport(item: ReportFile): Promise<ReportFileResponseDto> {
-    // Generate URLs สำหรับ PDF
-    const pdfUrls = await this.generateSignedUrlPair(item.file_url, item.file_name);
-    
-    // Generate URLs สำหรับ Original Submission PDF
+    // ใช้ Shared Service จัดการ Original Submission
     let submissionUrls: { url: string; downloadUrl: string } | null = null;
-    if (item.submission && item.submission.storagePath) {
-        submissionUrls = await this.generateSignedUrlPair(
-            item.submission.storagePath, 
-            item.submission.fileName || 'original_submission.pdf'
-        );
-    } 
-    // Fallback: กรณีข้อมูลเก่าไม่มี storagePath ค่อยใช้ fileUrl
-    else if (item.submission && item.submission.fileUrl) {
-         // (Optional) อาจจะต้องแก้ generateSignedUrlPair ให้รองรับ path 'submissions/' ด้วยถ้าจำเป็น
-         // แต่ถ้าระบบใหม่มี storagePath ทุกตัว ใช้ข้างบนปลอดภัยกว่าครับ
-         submissionUrls = await this.generateSignedUrlPair(
-            item.submission.fileUrl, 
-            item.submission.fileName || 'original_submission.pdf'
-        );
+    if (item.submission?.storagePath || item.submission?.fileUrl) {
+      const path = item.submission.storagePath || item.submission.fileUrl;
+      const name = item.submission.fileName || 'original_submission.pdf';
+      submissionUrls = await this.fileUrlService.generateSignedUrls(path, name);
     }
 
-    // Generate URLs สำหรับ CSV (ถ้ามี)
+    // ใช้ Shared Service จัดการ CSV
     let csvUrls: { url: string; downloadUrl: string } | null = null;
     if (item.csv_url) {
-      // สร้างชื่อไฟล์ csv จากชื่อ pdf (เช่น report_abc.pdf -> report_abc.csv)
-      // หรือใช้ชื่อไฟล์แบบง่ายๆ เพราะตอน downloadUrl เรากำหนดชื่อปลายทางได้
       const csvName = item.file_name.replace('.pdf', '.csv');
-      csvUrls = await this.generateSignedUrlPair(item.csv_url, csvName);
+      csvUrls = await this.fileUrlService.generateSignedUrls(item.csv_url, csvName);
     }
 
-    return ReportFileResponseDto.fromEntity(item, pdfUrls, submissionUrls, csvUrls);
+    return ReportFileResponseDto.fromEntity(item, pdfUrls, submissionUrls, csvUrls, attemptNumber); //
   }
 
 
@@ -112,19 +62,20 @@ export class ReportFileService {
   // ==========================================
   async getAllReports(filterDto: GetReportsFilterDto) {
     const {
-      search,
-      submissionId,
-      round,
-      term,
-      academicYear,
-      courseType,
-      verificationStatus,
-      reviewStatus,
-      page = 1,
-      limit = 10
+      search, submissionId, round,
+      term, academicYear, courseType,
+      verificationStatus, reviewStatus,
+      page = 1, limit = 10
     } = filterDto;
 
     const skip = (page - 1) * limit;
+
+    const targetRound = await this.inspectionRoundService.resolveTargetRound(filterDto);
+
+    // ถ้าไม่พบรอบเลย ให้ส่งค่าว่างกลับไป
+    if (!targetRound && !search && !submissionId) {
+      return { data: [], meta: { total: 0, page, lastPage: 0, limit } };
+    }
 
     const query = this.reportFileRepository.createQueryBuilder('report');
 
@@ -135,8 +86,27 @@ export class ReportFileService {
       .leftJoinAndSelect('submission.reviewer', 'reviewerUser')
       .leftJoinAndSelect('reviewerUser.instructor', 'reviewerProfile')
       .leftJoinAndSelect('submission.submitter', 'submitterUser')
-      .leftJoinAndSelect('submitterUser.student', 'student');
+      .leftJoinAndSelect('submitterUser.student', 'submitterStudent')
+      .leftJoinAndSelect('submission.group', 'group')
+      .leftJoinAndSelect('group.members', 'members')
+      .leftJoinAndSelect('members.student', 'student');
+      
 
+    // กรองด้วย ID ของรอบที่หาได้ 
+    if (targetRound) {
+      query.andWhere('submission.inspection_id = :roundId', { roundId: targetRound.inspectionId });
+    }
+
+    // กรองประเภทวิชา (Course Type) 
+    const targetCourseType = courseType && courseType !== 'ALL'
+      ? courseType
+      : (targetRound?.courseType !== 'ALL' ? targetRound?.courseType : null);
+
+    if (targetCourseType) {
+      query.andWhere('thesis.course_type = :cType', { cType: targetCourseType });
+    }
+
+    // กรองด้วย ID เฉพาะทาง (ถ้ามี)
     if (submissionId) query.andWhere('report.submission_id = :submissionId', { submissionId });
     if (round) query.andWhere('inspectionRound.round_number = :round', { round });
     if (term) query.andWhere('inspectionRound.term = :term', { term });
@@ -144,6 +114,8 @@ export class ReportFileService {
     if (courseType && courseType !== 'ALL') {
       query.andWhere('thesis.course_type = :courseType', { courseType });
     }
+
+    // กรองสถานะ
     if (verificationStatus) {
       query.andWhere('report.verification_status = :vStatus', { vStatus: verificationStatus });
     }
@@ -151,27 +123,28 @@ export class ReportFileService {
       query.andWhere('report.review_status = :rStatus', { rStatus: reviewStatus });
     }
 
+    // Search Logic
     if (search) {
-      query.andWhere(
-        new Brackets((qb) => {
-          qb.where('thesis.thesis_name_th LIKE :search', { search: `%${search}%` })
-            .orWhere('thesis.thesis_name_en LIKE :search', { search: `%${search}%` })
-            .orWhere('thesis.thesis_code LIKE :search', { search: `%${search}%` })
-            .orWhere('student.first_name LIKE :search', { search: `%${search}%` })
-            .orWhere('student.last_name LIKE :search', { search: `%${search}%` })
-            .orWhere('reviewerProfile.first_name LIKE :search', { search: `%${search}%` })
-            .orWhere('reviewerProfile.last_name LIKE :search', { search: `%${search}%` });
-        }),
-      );
+      query.andWhere(new Brackets((qb) => {
+        qb.where('thesis.thesis_name_th LIKE :search', { search: `%${search}%` })
+          .orWhere('thesis.thesis_name_en LIKE :search', { search: `%${search}%` })
+          .orWhere('thesis.thesis_code LIKE :search', { search: `%${search}%` })
+          .orWhere('student.student_code LIKE :search', { search: `%${search}%` })
+          .orWhere('student.first_name LIKE :search', { search: `%${search}%` })
+          .orWhere('student.last_name LIKE :search', { search: `%${search}%` });
+      }));
     }
+
+    // --- จบส่วนการ Filter ---
 
     query.orderBy('report.reported_at', 'DESC')
       .skip(skip)
       .take(limit);
 
     const [result, total] = await query.getManyAndCount();
-
-    const data = await Promise.all(result.map((item) => this.transformReport(item)));
+    const data = await Promise.all(
+      result.map((item) => this.transformReport(item, item.attempt_number))
+    );
 
     return {
       data,
@@ -266,18 +239,15 @@ export class ReportFileService {
     // ---------------------------------------------------------
     const reports = await this.reportFileRepository.find({
       where: { submission_id: submissionId },
-      order: { reported_at: 'DESC' },
+      order: { reported_at: 'ASC' },
     });
 
     // ---------------------------------------------------------
     // STEP 3: จับคู่และแปลงข้อมูล (Merge & Transform)
     // ---------------------------------------------------------
-    return Promise.all(reports.map(async (report) => {
-      // "แปะ" submission ก้อนเดียวกัน ใส่เข้าไปใน report ทุกตัว
-      // (เป็นการ Pass Reference ไม่กิน Memory เพิ่ม)
+    return Promise.all(reports.map(async (report, index) => {
       report.submission = submission;
-
-      return this.transformReport(report);
+      return this.transformReport(report, index + 1);
     }));
   }
 
@@ -325,9 +295,13 @@ export class ReportFileService {
     result: ResultMessage,
     verificationStatus: VerificationResultStatus
   ): Promise<ReportFile> {
+    const lastAttempt = await this.reportFileRepository.count({
+      where: { submission_id: result.submission_id }
+    });
 
     const reportFile = this.reportFileRepository.create({
       submission_id: result.submission_id,
+      attempt_number: lastAttempt + 1,
       file_url: result.result_file_url || '',
       csv_url: result.result_csv_url ?? null,
       file_name: result.result_file_name || '',
@@ -347,8 +321,12 @@ export class ReportFileService {
     errorMessage: string,
     status: VerificationResultStatus = VerificationResultStatus.ERROR
   ): Promise<ReportFile> {
+    const lastAttempt = await this.reportFileRepository.count({
+      where: { submission_id: submissionId }
+    });
     const reportFile = this.reportFileRepository.create({
       submission_id: submissionId,
+      attempt_number: lastAttempt + 1,
       file_url: '',
       file_name: '',
       file_type: 'error',
@@ -376,11 +354,11 @@ export class ReportFileService {
     });
 
     return Promise.all(reports.map(async (item) => {
-      const pdfUrls = await this.generateSignedUrlPair(item.file_url, item.file_name);
+      const pdfUrls = await this.fileUrlService.generateSignedUrls(item.file_url, item.file_name);
       let csvUrls: { url: string; downloadUrl: string } | null = null;
       if (item.csv_url) {
         const csvName = item.file_name.replace('.pdf', '.csv');
-        csvUrls = await this.generateSignedUrlPair(item.csv_url, csvName);
+        csvUrls = await this.fileUrlService.generateSignedUrls(item.csv_url, csvName);
       }
 
       // ดึงชื่ออาจารย์จาก Relation ที่ Join มา
@@ -441,12 +419,12 @@ export class ReportFileService {
     // Transform ข้อมูล
     return Promise.all(reports.map(async (report) => {
       // Logic สร้าง Signed URL
-      const pdfUrls = await this.generateSignedUrlPair(report.file_url, report.file_name);
+      const pdfUrls = await this.fileUrlService.generateSignedUrls(report.file_url, report.file_name);
 
       let csvUrls = { url: report.csv_url, downloadUrl: report.csv_url };
       if (report.csv_url && !report.csv_url.startsWith('http')) {
         const csvName = report.file_name.replace('.pdf', '.csv');
-        csvUrls = await this.generateSignedUrlPair(report.csv_url, csvName);
+        csvUrls = await this.fileUrlService.generateSignedUrls(report.csv_url, csvName);
       }
 
       const instructorProfile = report.commenter?.instructor;

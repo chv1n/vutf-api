@@ -1,3 +1,4 @@
+// src/modules/inspection_round/inspection_round.controller.ts
 import { Controller, Post, Body, UseGuards, Patch, Param, Delete, ParseIntPipe, Get, Query } from '@nestjs/common';
 import { InspectionRoundService } from './inspection_round.service';
 import { CreateInspectionRoundDto } from './dto/create-inspection_round.dto';
@@ -25,7 +26,17 @@ export class InspectionRoundController {
     return await this.inspectionRoundService.create(createInspectionRoundDto);
   }
 
-  @Get('active') 
+  /**
+   * GET /inspections/active-options
+   * ดึงตัวเลือกสำหรับ Dropdown (เฉพาะรอบที่เปิดอยู่)
+   */
+  @Get('active-options')
+  @Roles('admin', 'student', 'instructor')
+  async getActiveOptions() {
+    return this.inspectionRoundService.getActiveRoundsForDropdown();
+  }
+
+  @Get('active')
   async findActive() {
     const rounds = await this.inspectionRoundService.findAllActive();
     return rounds[0] || null;

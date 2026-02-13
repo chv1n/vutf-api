@@ -19,6 +19,9 @@ import { ClassSectionsModule } from './class-sections/class-sections.module'; im
 import { ReportFileModule } from './report-file/report-file.module';
 import { RabbitmqModule } from '../shared/rabbitmq/rabbitmq.module';
 
+import { TrackThesisModule } from './track-thesis/track-thesis.module';
+import { ExportFileModule } from './export-file/export-file.module';
+
 
 
 
@@ -43,9 +46,10 @@ export const AppModules = [
     ClassSectionsModule,
 
 
-
     ThesisModule,
     GroupMemberModule,
     AdvisorAssignmentModule,
+    TrackThesisModule,
+    ExportFileModule,
 ]
 

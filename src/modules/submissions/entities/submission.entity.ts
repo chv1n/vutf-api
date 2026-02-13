@@ -1,3 +1,4 @@
+// src/modules/submissions/entities/submission.entity.ts
 import {
     Entity,
     PrimaryGeneratedColumn,
