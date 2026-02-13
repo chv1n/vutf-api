@@ -69,6 +69,7 @@ export class ContextDto {
 // DTO หลัก
 export class ReportFileResponseDto {
     id: number;
+    attemptNumber: number;
     file: FileDto;
     originalFile: FileDto | null;
     csv: CsvDto | null;
@@ -94,10 +95,12 @@ export class ReportFileResponseDto {
         entity: ReportFile, 
         pdfUrls: { url: string; downloadUrl: string },
         submissionPdfUrls: { url: string; downloadUrl: string } | null,
-        csvUrls: { url: string; downloadUrl: string } | null
+        csvUrls: { url: string; downloadUrl: string } | null,
+        attemptNumber?: number
     ): ReportFileResponseDto {
         const dto = new ReportFileResponseDto();
         dto.id = entity.report_file_id;
+        dto.attemptNumber = attemptNumber || 1;
         dto.createdAt = entity.reported_at;
         dto.verificationStatus = entity.verification_status;
         dto.reviewStatus = entity.review_status;

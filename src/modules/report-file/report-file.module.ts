@@ -12,6 +12,8 @@ import { DocConfigModule } from '../doc-config/doc-config.module';
 import { Submission } from '../submissions/entities/submission.entity';
 import { StorageModule } from '../../common/modules/storage.module';
 import { GroupMember } from '../group-member/entities/group-member.entity';
+import { InspectionRoundModule } from '../inspection_round/inspection_round.module';
+import { SharedModule } from '../../shared/shared.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { GroupMember } from '../group-member/entities/group-member.entity';
     RabbitmqModule,
     DocConfigModule,
     StorageModule,
+    InspectionRoundModule,
+    SharedModule,
   ],
   controllers: [ReportFileController],
   providers: [

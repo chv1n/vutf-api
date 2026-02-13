@@ -9,6 +9,9 @@ export class ReportFile {
     @PrimaryGeneratedColumn()
     report_file_id: number;
 
+    @Column({ type: 'int', default: 1 })
+    attempt_number: number;
+
     @Column()
     file_url: string;
 

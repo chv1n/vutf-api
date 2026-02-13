@@ -1,8 +1,13 @@
-import { IsOptional, IsString, IsNumber, Min, IsEnum } from 'class-validator';
+import { IsOptional, IsString, IsNumber, Min, IsEnum, IsInt } from 'class-validator';
 import { Type } from 'class-transformer';
 import { VerificationResultStatus, InstructorReviewStatus } from '../enum/report-status.enum';
 
 export class GetReportsFilterDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  inspectionId?: number;
+
   @IsOptional()
   @IsString()
   search?: string; // Search by thesis name, student name

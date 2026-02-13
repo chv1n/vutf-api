@@ -1,3 +1,4 @@
+// src/modules/inspection_round/inspection_round.service.ts
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThanOrEqual, MoreThan, LessThan, ILike, Not } from 'typeorm';
@@ -16,7 +17,7 @@ export class InspectionRoundService {
 
   private toUtcFromThai(date: Date | string): Date {
     const d = new Date(date);
-    d.setHours(d.getHours() - 7); 
+    d.setHours(d.getHours() - 7);
     return d;
   }
 
@@ -25,12 +26,12 @@ export class InspectionRoundService {
   // =================================================================
   @Cron(CronExpression.EVERY_MINUTE)
   async handleAutoStatusUpdate() {
-    const now = new Date(); 
+    const now = new Date();
 
     await this.inspectionRoundRepository.update(
       {
         status: InspectionStatus.CLOSED,
-        startDate: LessThanOrEqual(now), 
+        startDate: LessThanOrEqual(now),
         endDate: MoreThan(now),
         isActive: true,
         isManualClosed: false
@@ -44,7 +45,7 @@ export class InspectionRoundService {
         endDate: LessThan(now),
         isActive: true
       },
-      { 
+      {
         status: InspectionStatus.CLOSED,
         isManualClosed: false
       }
@@ -56,16 +57,16 @@ export class InspectionRoundService {
   // =================================================================
 
   async findAll(query: GetInspectionRoundsQueryDto): Promise<{ data: InspectionRound[], meta: any }> {
-    const { 
-      page = 1, 
-      limit = 10, 
-      search, 
-      academicYear, 
-      term, 
-      roundNumber, 
-      courseType 
+    const {
+      page = 1,
+      limit = 10,
+      search,
+      academicYear,
+      term,
+      roundNumber,
+      courseType
     } = query;
-    
+
     const skip = (page - 1) * limit;
 
     const baseCondition: any = { isActive: true };
@@ -216,7 +217,7 @@ export class InspectionRoundService {
     const round = await this.findOne(id);
     if (round.status === InspectionStatus.OPEN) {
       round.status = InspectionStatus.CLOSED;
-      round.isManualClosed = true; 
+      round.isManualClosed = true;
     } else {
       round.status = InspectionStatus.OPEN;
       round.isManualClosed = false;
@@ -232,5 +233,69 @@ export class InspectionRoundService {
     round.isActive = false;
     await this.inspectionRoundRepository.save(round);
     return { message: `Success` };
+  }
+
+  /**
+   * ดึงเฉพาะรอบที่ "เปิดอยู่ (OPEN)" และ "Active"
+   * เอาไว้ทำ Dropdown ให้ Admin เลือก
+   */
+  async getActiveRoundsForDropdown() {
+    const activeRounds = await this.inspectionRoundRepository.find({
+      where: {
+        status: InspectionStatus.OPEN, 
+        isActive: true,               
+      },
+      order: {
+        academicYear: 'DESC', 
+        term: 'DESC',         
+        roundNumber: 'DESC', 
+      },
+      select: [
+        'inspectionId',
+        'academicYear',
+        'term',
+        'roundNumber',
+        'courseType',
+        'endDate',
+        'title'
+      ]
+    });
+
+    // Format ข้อมูลให้ Frontend เอาไปใช้ง่ายๆ
+    return activeRounds.map(round => ({
+      id: round.inspectionId,
+      label: `ปี ${round.academicYear}/${round.term} รอบที่ ${round.roundNumber}: ${round.title}`,
+      value: round.inspectionId,
+      type: round.courseType,
+      deadline: round.endDate
+    }));
+  }
+
+  async resolveTargetRound(
+    filters: { inspectionId?: number; academicYear?: string; term?: string; roundNumber?: number }
+  ): Promise<InspectionRound | null> {
+    const { inspectionId, academicYear, term, roundNumber } = filters;
+
+    if (academicYear && term && roundNumber) {
+      return await this.inspectionRoundRepository.findOne({
+        where: { academicYear, term, roundNumber: Number(roundNumber) },
+      });
+    }
+
+    if (inspectionId) {
+      return await this.inspectionRoundRepository.findOne({ where: { inspectionId } });
+    }
+
+    // Default: หา Active หรือ ล่าสุด
+    let round = await this.inspectionRoundRepository.findOne({
+      where: { status: InspectionStatus.OPEN, isActive: true },
+      order: { endDate: 'ASC' }, // หรือ DESC 
+    });
+
+    if (!round) {
+      round = await this.inspectionRoundRepository.findOne({ order: { createAt: 'DESC' } });
+    }
+
+    return round;
   }
 }

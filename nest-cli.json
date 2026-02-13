@@ -5,7 +5,9 @@
   "compilerOptions": {
     "deleteOutDir": true,
     "assets": [
-      "**/*.hbs"
-    ]
+      "**/*.hbs",
+      "assets/**/*" 
+    ],
+    "watchAssets": true
   }
 }

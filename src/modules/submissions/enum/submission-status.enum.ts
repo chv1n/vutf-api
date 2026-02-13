@@ -1,3 +1,4 @@
+// src/modules/submissions/enum/submission-status.enum.ts
 export enum SubmissionStatus {
     PENDING = 'PENDING',            // รอดำเนินการ (นศ submit ไฟล์เข้ามา่)
     IN_PROGRESS = 'IN_PROGRESS',    // กำลังดำเนินการ (อาจารย์กดตรวจไฟล์แล้ว)

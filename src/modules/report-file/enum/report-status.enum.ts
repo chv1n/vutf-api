@@ -1,3 +1,4 @@
+// src/modules/report-file/enum/report-status.enum.ts
 // สถานะผลลัพธ์จาก Python (ระบบ Auto)
 export enum VerificationResultStatus {
     PASS = 'PASS',          // ผ่านเกณฑ์ระบบ
