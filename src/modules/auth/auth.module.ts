@@ -6,6 +6,7 @@ import { StudentModule } from '../student/student.module';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 import { SharedModule } from '../../shared/shared.module';
+import { AuditLogModule } from '../audit-log/audit-log.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { SharedModule } from '../../shared/shared.module';
     StudentModule,
     JwtModule.register({}),
     SharedModule,
+    AuditLogModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],

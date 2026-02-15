@@ -6,23 +6,13 @@ import {
   CreateDateColumn,
   OneToOne,
   OneToMany,
-  DeleteDateColumn
+  DeleteDateColumn,
+  JoinColumn
 } from 'typeorm';
 import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
 import { Submission } from '../../submissions/entities/submission.entity';
-
-
-export enum CourseType {
-  PRE_PROJECT = 'PRE_PROJECT',
-  PROJECT = 'PROJECT',
-  ALL = 'ALL'
-}
-
-export enum ThesisStatus {
-  IN_PROGRESS = 'IN_PROGRESS', // กำลังดำเนินการ
-  PASSED = 'PASSED',           // ผ่าน
-  FAILED = 'FAILED'            // ไม่ผ่าน
-}
+import { ThesisDocument } from './thesis-document.entity';
+import { CourseType, ThesisStatus } from '../enums/course-type.enum';
 
 @Entity('thesis')
 export class Thesis {
@@ -41,8 +31,8 @@ export class Thesis {
   @Column()
   graduation_year: number;
 
-  @Column({ type: 'text', nullable: true })
-  file_url: string | null;
+  // @Column({ type: 'text', nullable: true })
+  // file_url: string | null;
 
   @Column({
     type: 'enum',
@@ -75,4 +65,11 @@ export class Thesis {
 
   @OneToMany(() => Submission, (submission) => submission.thesis)
   submissions: Submission[];
+
+  @OneToOne(() => Submission, { nullable: true })
+  @JoinColumn({ name: 'approved_submission_id' })
+  approved_submission: Submission | null;
+
+  @OneToMany(() => ThesisDocument, (document) => document.thesis)
+  documents: ThesisDocument[];
 }

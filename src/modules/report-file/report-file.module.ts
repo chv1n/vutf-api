@@ -14,10 +14,12 @@ import { StorageModule } from '../../common/modules/storage.module';
 import { GroupMember } from '../group-member/entities/group-member.entity';
 import { InspectionRoundModule } from '../inspection_round/inspection_round.module';
 import { SharedModule } from '../../shared/shared.module';
+import { Thesis } from '../thesis/entities/thesis.entity';
+import { ThesisDocument } from '../thesis/entities/thesis-document.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([ReportFile, Submission, GroupMember]),
+    TypeOrmModule.forFeature([ReportFile, Submission, GroupMember, Thesis, ThesisDocument]),
     RabbitmqModule,
     DocConfigModule,
     StorageModule,

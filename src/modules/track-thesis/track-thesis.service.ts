@@ -6,7 +6,7 @@ import { ThesisGroup } from '../thesis-group/entities/thesis-group.entity';
 import { InspectionRound } from '../inspection_round/entities/inspection_round.entity';
 import { InspectionRoundService } from '../inspection_round/inspection_round.service';
 import { GetUnsubmittedFilterDto } from './dto/get-unsubmitted-filter.dto';
-import { CourseType, ThesisStatus } from '../thesis/entities/thesis.entity';
+import { CourseType, ThesisStatus } from '../thesis/enums/course-type.enum';
 import { FileUrlService } from '../../shared/services/file-url.service';
 import { InvitationStatus } from '../group-member/enum/invitation-status.enum';
 import { MailService } from '../../shared/services/mail.service';
@@ -46,7 +46,7 @@ export class TrackThesisService {
         'submission.inspection_id = :targetRoundId',
         { targetRoundId: targetRound.inspectionId }
       )
-      .where('thesis.status = :thesisStatus', { thesisStatus: ThesisStatus.IN_PROGRESS })
+      // .where('thesis.status = :thesisStatus', { thesisStatus: ThesisStatus.IN_PROGRESS })
       .andWhere('thesis.delete_at IS NULL');
 
     // --- Apply Shared Filters ---

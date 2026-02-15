@@ -2,7 +2,7 @@
 import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ThesisGroupStatus } from '../../thesis-group/entities/thesis-group.entity';
-import { ThesisStatus } from '../../thesis/entities/thesis.entity';
+import { ThesisStatus } from '../../thesis/enums/course-type.enum';
 
 export class GetGroupsFilterDto {
   @IsOptional()

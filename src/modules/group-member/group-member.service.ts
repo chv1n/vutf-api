@@ -18,7 +18,7 @@ import { InvitationStatus } from './enum/invitation-status.enum';
 import { GroupMemberRole } from './enum/group-member-role.enum';
 import { ThesisGroup, ThesisGroupStatus } from '../thesis-group/entities/thesis-group.entity';
 import { Not } from 'typeorm';
-import { ThesisStatus } from '../thesis/entities/thesis.entity';
+import { ThesisStatus } from '../thesis/enums/course-type.enum';
 
 @Injectable()
 export class GroupMemberService {

@@ -21,6 +21,8 @@ import { RabbitmqModule } from '../shared/rabbitmq/rabbitmq.module';
 
 import { TrackThesisModule } from './track-thesis/track-thesis.module';
 import { ExportFileModule } from './export-file/export-file.module';
+import { ThesisFilesModule } from './thesis-files/thesis-files.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
 
 
 
@@ -51,5 +53,7 @@ export const AppModules = [
     AdvisorAssignmentModule,
     TrackThesisModule,
     ExportFileModule,
+    ThesisFilesModule,
+    AuditLogModule,
 ]
 
