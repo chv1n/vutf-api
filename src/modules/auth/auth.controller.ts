@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, Res, Req, BadRequestException, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, Res, Req, BadRequestException, UnauthorizedException, UseGuards, Ip } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -42,10 +42,11 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() loginDto: LoginDto,
+    @Ip() ip: string,
     @Res({ passthrough: true }) res: Response
   ) {
     // 1. เรียก Service ได้ผลลัพธ์ที่มี tokens
-    const result = await this.authService.login(loginDto);
+    const result = await this.authService.login(loginDto, ip);
 
     // 2. แยก token ออกมาใส่ Cookie
     this.setAuthCookies(res, result.accessToken, result.refreshToken);

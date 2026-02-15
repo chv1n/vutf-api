@@ -15,6 +15,9 @@ import { InvitationStatus } from '../group-member/enum/invitation-status.enum';
 import { GroupMember } from '../group-member/entities/group-member.entity';
 import { FileUrlService } from 'src/shared/services/file-url.service';
 import { InspectionRoundService } from '../inspection_round/inspection_round.service';
+import { Thesis } from '../thesis/entities/thesis.entity';
+import { CourseType, ThesisStatus } from '../thesis/enums/course-type.enum';
+import { ThesisDocument, DocumentType } from '../thesis/entities/thesis-document.entity';
 
 
 @Injectable()
@@ -29,6 +32,10 @@ export class ReportFileService {
     private readonly submissionRepository: Repository<Submission>,
     @InjectRepository(GroupMember)
     private readonly groupMemberRepository: Repository<GroupMember>,
+    @InjectRepository(Thesis)
+    private readonly thesisRepository: Repository<Thesis>,
+    @InjectRepository(ThesisDocument)
+    private readonly thesisDocumentRepository: Repository<ThesisDocument>,
     @Inject(STORAGE_SERVICE)
     private readonly storageService: IStorageService,
   ) { }
@@ -90,7 +97,7 @@ export class ReportFileService {
       .leftJoinAndSelect('submission.group', 'group')
       .leftJoinAndSelect('group.members', 'members')
       .leftJoinAndSelect('members.student', 'student');
-      
+
 
     // กรองด้วย ID ของรอบที่หาได้ 
     if (targetRound) {
@@ -258,19 +265,99 @@ export class ReportFileService {
     instructorId: string
   ): Promise<ReportFile> {
 
+    // ดึงข้อมูล 
     const reportFile = await this.reportFileRepository.findOne({
       where: { report_file_id: reportFileId },
+      relations: [
+        'submission',
+        'submission.thesis',
+        'submission.thesis.approved_submission'
+      ]
     });
 
-    if (!reportFile) {
-      throw new NotFoundException(`ReportFile with ID ${reportFileId} not found`);
-    }
+    if (!reportFile) throw new NotFoundException(`ReportFile not found`);
 
+    // Save 
     reportFile.review_status = status;
     reportFile.comment = comment;
     reportFile.comment_by = instructorId;
+    const savedReport = await this.reportFileRepository.save(reportFile);
 
-    return this.reportFileRepository.save(reportFile);
+    // Logic อัปเดต Thesis และ ThesisDocument
+    if (reportFile.submission && reportFile.submission.thesis) {
+      const thesis = reportFile.submission.thesis;
+      const submission = reportFile.submission;
+
+      const thesisRef = new Thesis();
+      thesisRef.thesis_id = thesis.thesis_id;
+
+      // =========================================================
+      // CASE A: อาจารย์ให้ "ผ่าน" (PASSED)
+      // =========================================================
+      if (status === InstructorReviewStatus.PASSED) {
+
+        await this.thesisRepository.update(thesis.thesis_id, {
+          status: ThesisStatus.PASSED,
+          approved_submission: submission
+        });
+
+        // Create/Update ThesisDocument
+        let pdfDoc = await this.thesisDocumentRepository.findOne({
+          where: {
+            thesis: { thesis_id: thesis.thesis_id },
+            document_type: DocumentType.FULL_THESIS_PDF,
+            course_type: thesis.course_type 
+          }
+        });
+
+        if (!pdfDoc) {
+          pdfDoc = this.thesisDocumentRepository.create({
+            thesis: thesisRef,
+            document_type: DocumentType.FULL_THESIS_PDF,
+            course_type: thesis.course_type
+          });
+        }
+
+        // อัปเดตข้อมูลไฟล์
+        pdfDoc.file_url = submission.fileUrl;
+        pdfDoc.file_name = submission.fileName;
+        pdfDoc.file_size = submission.fileSize;
+        pdfDoc.mime_type = submission.mimeType;
+        pdfDoc.storagePath = submission.storagePath;
+
+        await this.thesisDocumentRepository.save(pdfDoc);
+
+        this.logger.log(`Synced PDF for ${thesis.course_type} - Thesis ${thesis.thesis_code}`);
+      }
+
+      // =========================================================
+      // CASE B: ไม่ผ่าน
+      // =========================================================
+      else {
+        if (thesis.approved_submission?.submissionId === submission.submissionId) {
+
+          await this.thesisRepository.update(thesis.thesis_id, {
+            status: ThesisStatus.IN_PROGRESS,
+            approved_submission: null
+          });
+
+          // ลบไฟล์ (ลบเฉพาะของวิชานั้นๆ ไม่ไปยุ่งกับไฟล์วิชาอื่น)
+          await this.thesisDocumentRepository.delete({
+            thesis: { thesis_id: thesis.thesis_id },
+            document_type: DocumentType.FULL_THESIS_PDF,
+            course_type: thesis.course_type
+          });
+        }
+      }
+    }
+
+    // ตัด Loop ก่อนส่งกลับ
+    if (savedReport.submission) {
+      // @ts-ignore
+      delete savedReport.submission.thesis;
+    }
+
+    return savedReport;
   }
 
   async update(

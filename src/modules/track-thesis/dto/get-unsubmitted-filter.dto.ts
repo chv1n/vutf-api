@@ -1,7 +1,7 @@
 // src/modules/track-thesis/dto/get-unsubmitted-filter.dto.ts
 import { IsOptional, IsInt, IsString, IsEnum, Min, IsBoolean } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
-import { CourseType } from '../../thesis/entities/thesis.entity';
+import { CourseType, ThesisStatus } from '../../thesis/enums/course-type.enum';
 import { SubmissionStatus } from '../../submissions/enum/submission-status.enum';
 
 export class GetUnsubmittedFilterDto {

@@ -2,7 +2,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
-import { Thesis, ThesisStatus } from '../thesis/entities/thesis.entity';
+import { Thesis } from '../thesis/entities/thesis.entity';
+import { ThesisStatus } from '../thesis/enums/course-type.enum';
 import { ThesisGroup, ThesisGroupStatus } from '../thesis-group/entities/thesis-group.entity';
 import { AdminApproveGroupDto } from './dto/admin-approve-group.dto';
 import { GetGroupsFilterDto } from './dto/get-groups-filter.dto';

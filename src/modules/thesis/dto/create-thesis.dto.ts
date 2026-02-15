@@ -1,5 +1,5 @@
 import { IsNotEmpty, IsNumber, IsOptional, IsString, IsEnum } from 'class-validator';
-import { CourseType } from '../entities/thesis.entity';
+import { CourseType } from '../enums/course-type.enum';
 export class CreateThesisDto {
   @IsString()
   @IsNotEmpty()

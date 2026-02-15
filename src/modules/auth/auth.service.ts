@@ -14,6 +14,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +26,7 @@ export class AuthService {
     private redisService: RedisService,
     private mailService: MailService,
     private otpService: OtpService,
+    private readonly auditLogService: AuditLogService,
   ) { }
 
   async getMe(userId: string) {
@@ -45,7 +47,7 @@ export class AuthService {
     };
   }
 
-  async login(loginDto: LoginDto) {
+  async login(loginDto: LoginDto, ip: string) {
     const { email, password } = loginDto;
     const user = await this.usersService.findByEmail(email);
 
@@ -76,6 +78,18 @@ export class AuthService {
       refreshToken,
       7 * 24 * 60 * 60, // 7 days
     );
+
+    try {
+      await this.auditLogService.createLog(
+        user.user_uuid,
+        'LOGIN',
+        'เข้าสู่ระบบสำเร็จ',
+        null, 
+        ip   
+      );
+    } catch (error) {
+      console.error('Login Log Error:', error.message);
+    }
     return {
       userId: user.user_uuid,
       email: user.email,
