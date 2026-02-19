@@ -1,5 +1,5 @@
 // src/modules/thesis-topic/thesis-topic.service.ts
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Brackets } from 'typeorm';
 import { Thesis } from '../thesis/entities/thesis.entity';
@@ -7,14 +7,18 @@ import { ThesisStatus } from '../thesis/enums/course-type.enum';
 import { ThesisGroup, ThesisGroupStatus } from '../thesis-group/entities/thesis-group.entity';
 import { AdminApproveGroupDto } from './dto/admin-approve-group.dto';
 import { GetGroupsFilterDto } from './dto/get-groups-filter.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 @Injectable()
 export class ThesisTopicService {
+  private readonly logger = new Logger(ThesisTopicService.name);
   constructor(
     @InjectRepository(Thesis)
     private readonly thesisRepo: Repository<Thesis>,
     @InjectRepository(ThesisGroup)
     private readonly thesisGroupRepo: Repository<ThesisGroup>,
+    private readonly notificationsService: NotificationsService,
   ) { }
 
   async removeThesis(thesisId: string): Promise<{ message: string }> {
@@ -156,7 +160,7 @@ export class ThesisTopicService {
   async adminUpdateStatus(groupId: string, dto: AdminApproveGroupDto): Promise<ThesisGroup> {
     const group = await this.thesisGroupRepo.findOne({
       where: { group_id: groupId },
-      relations: ['members'],
+      relations: ['thesis', 'members', 'members.student', 'members.student.user'],
     });
 
     if (!group) {
@@ -193,6 +197,59 @@ export class ThesisTopicService {
       group.rejection_reason = dto.rejection_reason || 'ไม่ระบุเหตุผล';
     }
 
-    return await this.thesisGroupRepo.save(group);
+    const savedGroup = await this.thesisGroupRepo.save(group);
+
+    // =========================================================
+    // Notification
+    // =========================================================
+    try {
+      if (savedGroup.members && savedGroup.members.length > 0) {
+
+        // กรองเอาเฉพาะ User UUID ของสมาชิกในกลุ่ม
+        const targetUserIds = savedGroup.members
+          .filter(member => member.invitation_status === 'approved')
+          .map(member => member.student?.user?.user_uuid)
+          .filter(id => !!id);
+
+        if (targetUserIds.length > 0) {
+          let notiTitle = '';
+          let notiMessage = '';
+          const notiType = NotificationType.GROUP_STATUS;
+
+          if (dto.status === ThesisGroupStatus.APPROVED) {
+            notiTitle = 'ผลการจัดตั้งกลุ่ม: อนุมัติ';
+            notiMessage = `กลุ่มโครงงาน "${savedGroup.thesis?.thesis_name_th || 'ของคุณ'}" ได้รับการอนุมัติแล้ว`;
+          } else if (dto.status === ThesisGroupStatus.REJECTED) {
+            notiTitle = 'ผลการจัดตั้งกลุ่ม: ถูกปฏิเสธ';
+            notiMessage = `คำขอจัดตั้งกลุ่มถูกปฏิเสธ เหตุผล: ${dto.rejection_reason || 'ไม่ระบุ'}`;
+          } else if (dto.status === ThesisGroupStatus.PENDING) {
+            notiTitle = 'ผลการจัดตั้งกลุ่ม: รอการตรวจสอบ';
+            notiMessage = 'ข้อมูลกลุ่มไม่ถูกต้อง กรุณาตรวจสอบและแก้ไขข้อมูลให้ถูกต้อง';
+          }
+
+          if (notiTitle) {
+            await Promise.all(
+              targetUserIds.map(userId =>
+                this.notificationsService.createAndSend(
+                  userId,
+                  notiType,
+                  notiTitle,
+                  notiMessage,
+                  {
+                    groupId: savedGroup.group_id,
+                    status: dto.status,
+                    url: '/student/group-management'
+                  }
+                )
+              )
+            );
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.error(`Failed to send group status notification: ${error.message}`);
+    }
+
+    return savedGroup;
   }
 }

@@ -18,6 +18,8 @@ import { InspectionRoundService } from '../inspection_round/inspection_round.ser
 import { Thesis } from '../thesis/entities/thesis.entity';
 import { CourseType, ThesisStatus } from '../thesis/enums/course-type.enum';
 import { ThesisDocument, DocumentType } from '../thesis/entities/thesis-document.entity';
+import { NotificationType } from '../notifications/entities/notification.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 
 @Injectable()
@@ -38,6 +40,7 @@ export class ReportFileService {
     private readonly thesisDocumentRepository: Repository<ThesisDocument>,
     @Inject(STORAGE_SERVICE)
     private readonly storageService: IStorageService,
+    private readonly notificationsService: NotificationsService,
   ) { }
 
   private async transformReport(item: ReportFile, attemptNumber?: number): Promise<ReportFileResponseDto> {
@@ -77,12 +80,8 @@ export class ReportFileService {
 
     const skip = (page - 1) * limit;
 
+    // 1. ดึง targetRound มาเพื่อใช้เป็นค่า Default กรณีหน้าแรก หรือใช้ช่วยกรอง Course Type
     const targetRound = await this.inspectionRoundService.resolveTargetRound(filterDto);
-
-    // ถ้าไม่พบรอบเลย ให้ส่งค่าว่างกลับไป
-    if (!targetRound && !search && !submissionId) {
-      return { data: [], meta: { total: 0, page, lastPage: 0, limit } };
-    }
 
     const query = this.reportFileRepository.createQueryBuilder('report');
 
@@ -98,31 +97,30 @@ export class ReportFileService {
       .leftJoinAndSelect('group.members', 'members')
       .leftJoinAndSelect('members.student', 'student');
 
+    /**
+     * 2. LOGIC การกรองรอบ (แก้ไขจุดนี้)
+     * - หากมีการระบุ search, submissionId หรือเลือกเลขรอบ/ปี/เทอม มา "ไม่ต้อง" กรองด้วย targetRound.inspectionId
+     * - จะใช้ targetRound.inspectionId เฉพาะกรณีที่โหลดหน้าแรกมาแบบไม่มี Filter ใดๆ เท่านั้น (เพื่อโชว์รอบปัจจุบัน)
+     */
+    const hasUserFilter = !!(search || submissionId || round || term || academicYear);
 
-    // กรองด้วย ID ของรอบที่หาได้ 
-    if (targetRound) {
-      query.andWhere('submission.inspection_id = :roundId', { roundId: targetRound.inspectionId });
+    // if (!hasUserFilter && targetRound) {
+    //   query.andWhere('submission.inspection_id = :roundId', { roundId: targetRound.inspectionId });
+    // }
+
+    // 3. กรองประเภทวิชา (Course Type) 
+    // ลำดับความสำคัญ: สิ่งที่ User เลือก > สิ่งที่กำหนดในรอบนั้นๆ
+    if (courseType && courseType !== 'ALL') {
+      query.andWhere('thesis.course_type = :cType', { cType: courseType });
     }
 
-    // กรองประเภทวิชา (Course Type) 
-    const targetCourseType = courseType && courseType !== 'ALL'
-      ? courseType
-      : (targetRound?.courseType !== 'ALL' ? targetRound?.courseType : null);
-
-    if (targetCourseType) {
-      query.andWhere('thesis.course_type = :cType', { cType: targetCourseType });
-    }
-
-    // กรองด้วย ID เฉพาะทาง (ถ้ามี)
+    // 4. กรองตามเงื่อนไขที่ User เลือกมาจริงๆ
     if (submissionId) query.andWhere('report.submission_id = :submissionId', { submissionId });
-    if (round) query.andWhere('inspectionRound.round_number = :round', { round });
+    if (round) query.andWhere('inspectionRound.round_number = :round', { round: Number(round) });
     if (term) query.andWhere('inspectionRound.term = :term', { term });
     if (academicYear) query.andWhere('inspectionRound.academic_year = :year', { year: academicYear });
-    if (courseType && courseType !== 'ALL') {
-      query.andWhere('thesis.course_type = :courseType', { courseType });
-    }
 
-    // กรองสถานะ
+    // 5. กรองสถานะ
     if (verificationStatus) {
       query.andWhere('report.verification_status = :vStatus', { vStatus: verificationStatus });
     }
@@ -130,7 +128,7 @@ export class ReportFileService {
       query.andWhere('report.review_status = :rStatus', { rStatus: reviewStatus });
     }
 
-    // Search Logic
+    // 6. Search Logic
     if (search) {
       query.andWhere(new Brackets((qb) => {
         qb.where('thesis.thesis_name_th LIKE :search', { search: `%${search}%` })
@@ -142,8 +140,7 @@ export class ReportFileService {
       }));
     }
 
-    // --- จบส่วนการ Filter ---
-
+    // 7. เรียงลำดับตามความล่าสุด และ Pagination
     query.orderBy('report.reported_at', 'DESC')
       .skip(skip)
       .take(limit);
@@ -270,6 +267,7 @@ export class ReportFileService {
       where: { report_file_id: reportFileId },
       relations: [
         'submission',
+        'submission.submitter',
         'submission.thesis',
         'submission.thesis.approved_submission'
       ]
@@ -283,6 +281,52 @@ export class ReportFileService {
     reportFile.comment_by = instructorId;
     const savedReport = await this.reportFileRepository.save(reportFile);
 
+    // =========================================================
+    // Notification 
+    // =========================================================
+    if (reportFile.submission && reportFile.submission.submitter) {
+      const targetUserId = reportFile.submission.submitter.user_uuid;
+
+      let notiTitle = 'อัปเดตสถานะการตรวจสอบ';
+      let notiMessage = 'อาจารย์ได้ตรวจสอบงานของคุณแล้ว';
+
+      switch (status) {
+        case InstructorReviewStatus.PASSED:
+          notiTitle = 'ผลการตรวจสอบ: ผ่าน';
+          notiMessage = `ยินดีด้วย! เอกสารของคุณผ่านการตรวจสอบแล้ว`;
+          break;
+        case InstructorReviewStatus.NEEDS_REVISION:
+          notiTitle = 'ผลการตรวจสอบ: แก้ไข';
+          notiMessage = `เอกสารต้องได้รับการแก้ไข กรุณาดูคอมเมนต์จากอาจารย์`;
+          break;
+        case InstructorReviewStatus.NOT_PASSED:
+          notiTitle = 'ผลการตรวจสอบ: ไม่ผ่าน';
+          notiMessage = `เอกสารไม่ผ่านการตรวจสอบ`;
+          break;
+      }
+
+      if (comment) {
+        const shortComment = comment.length > 50 ? comment.substring(0, 50) + '...' : comment;
+        notiMessage += ` ("${shortComment}")`;
+      }
+
+      await this.notificationsService.createAndSend(
+        targetUserId,
+        NotificationType.SUBMISSION_STATUS,
+        notiTitle,
+        notiMessage,
+        {
+          submissionId: reportFile.submission.submissionId,
+          reportFileId: reportFile.report_file_id,
+          status: status,
+          url: '/student/report'
+        }
+      ).catch(err => {
+        this.logger.error(`Failed to send notification to user ${targetUserId}: ${err.message}`);
+      });
+    }
+    // =========================================================
+    
     // Logic อัปเดต Thesis และ ThesisDocument
     if (reportFile.submission && reportFile.submission.thesis) {
       const thesis = reportFile.submission.thesis;
@@ -306,7 +350,7 @@ export class ReportFileService {
           where: {
             thesis: { thesis_id: thesis.thesis_id },
             document_type: DocumentType.FULL_THESIS_PDF,
-            course_type: thesis.course_type 
+            course_type: thesis.course_type
           }
         });
 

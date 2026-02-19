@@ -4,13 +4,18 @@ import cookieParser from 'cookie-parser';
 import { ValidationPipe } from '@nestjs/common';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { IoAdapter } from '@nestjs/platform-socket.io';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   process.env.TZ = 'UTC';
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
+  const frontendUrl = configService.get<string>('FRONTEND_URL');
+  app.useWebSocketAdapter(new IoAdapter(app));
   app.use(cookieParser());
   app.enableCors({
-    origin: 'http://localhost:5173',
+    origin: frontendUrl || 'http://localhost:5173',
     credentials: true,
   });
   app.setGlobalPrefix('api/v1');
@@ -24,6 +29,7 @@ async function bootstrap() {
       transform: true, // แปลง Type ให้ตรงกับ DTO อัตโนมัติ
     }),
   );
-  await app.listen(3000);
+  const port = configService.get<number>('PORT') || 3000;
+  await app.listen(port);
 }
 bootstrap();

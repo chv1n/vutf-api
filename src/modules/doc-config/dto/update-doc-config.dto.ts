@@ -7,6 +7,7 @@ import {
     Min,
     IsOptional,
     IsArray,
+    IsBoolean,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -87,6 +88,32 @@ export class PartialIndentRulesConfigDto {
     tolerance?: number;
 }
 
+export class PartialCheckListConfigDto {
+    @IsOptional()
+    @IsBoolean()
+    check_font?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    check_margin?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    check_section_seq?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    check_page_seq?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    check_indentation?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    check_spacing?: boolean;
+}
+
 export class UpdateDocConfigDto {
     @IsOptional()
     @ValidateNested()
@@ -102,6 +129,11 @@ export class UpdateDocConfigDto {
     @ValidateNested()
     @Type(() => PartialIndentRulesConfigDto)
     indent_rules?: PartialIndentRulesConfigDto;
+
+    @IsOptional()
+    @ValidateNested()
+    @Type(() => PartialCheckListConfigDto)
+    check_list?: PartialCheckListConfigDto;
 
     @IsOptional()
     @IsArray()
