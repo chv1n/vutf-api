@@ -23,6 +23,7 @@ import { TrackThesisModule } from './track-thesis/track-thesis.module';
 import { ExportFileModule } from './export-file/export-file.module';
 import { ThesisFilesModule } from './thesis-files/thesis-files.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 
 
@@ -55,5 +56,6 @@ export const AppModules = [
     ExportFileModule,
     ThesisFilesModule,
     AuditLogModule,
+    NotificationsModule,
 ]
 

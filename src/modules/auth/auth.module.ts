@@ -18,5 +18,6 @@ import { AuditLogModule } from '../audit-log/audit-log.module';
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule { }

@@ -16,6 +16,7 @@ import { InspectionRoundModule } from '../inspection_round/inspection_round.modu
 import { SharedModule } from '../../shared/shared.module';
 import { Thesis } from '../thesis/entities/thesis.entity';
 import { ThesisDocument } from '../thesis/entities/thesis-document.entity';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ThesisDocument } from '../thesis/entities/thesis-document.entity';
     StorageModule,
     InspectionRoundModule,
     SharedModule,
+    NotificationsModule,
   ],
   controllers: [ReportFileController],
   providers: [

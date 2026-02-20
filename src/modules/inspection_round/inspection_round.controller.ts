@@ -1,5 +1,5 @@
 // src/modules/inspection_round/inspection_round.controller.ts
-import { Controller, Post, Body, UseGuards, Patch, Param, Delete, ParseIntPipe, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Patch, Param, Delete, ParseIntPipe, Get, Query, Req } from '@nestjs/common';
 import { InspectionRoundService } from './inspection_round.service';
 import { CreateInspectionRoundDto } from './dto/create-inspection_round.dto';
 import { UpdateInspectionRoundDto } from './dto/update-inspection_round.dto';
@@ -42,6 +42,13 @@ export class InspectionRoundController {
     return rounds[0] || null;
   }
 
+  @Get('my-available')
+  @Roles('student')
+  async getMyAvailable(@Req() req: any) {
+    const userId = req.user.userId; 
+    return await this.inspectionRoundService.getAvailableRoundsForUser(userId);
+  }
+
   @Get(':id')
   @Roles('admin', 'student', 'instructor')
   async findOne(@Param('id', ParseIntPipe) id: number) {
@@ -68,4 +75,11 @@ export class InspectionRoundController {
   async toggleStatus(@Param('id', ParseIntPipe) id: number) {
     return await this.inspectionRoundService.toggleStatus(id);
   }
+
+  @Get('group/:groupId/available')
+  @Roles('admin', 'student', 'instructor')
+  async getAvailableForGroup(@Param('groupId') groupId: string) {
+    return await this.inspectionRoundService.getAvailableRoundsForGroup(groupId);
+  }
+
 }

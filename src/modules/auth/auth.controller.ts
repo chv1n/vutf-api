@@ -120,6 +120,7 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   async register(
     @Body() registerDto: RegisterDto,
+    @Ip() ip: string,
     @Req() req: Request,
   ) {
     const registrationToken = req.cookies['registrationToken'];
@@ -127,15 +128,15 @@ export class AuthController {
       throw new BadRequestException('Registration token is missing.');
     }
 
-    const user = await this.authService.register(registerDto, registrationToken);
+    const user = await this.authService.register(registerDto, registrationToken, ip);
     return user;
   }
 
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.requestForgotPasswordOtp(dto);
+  async forgotPassword(@Body() dto: ForgotPasswordDto,@Ip() ip: string,) {
+    return this.authService.requestForgotPasswordOtp(dto, ip);
   }
 
   @Post('verify-forgot-otp')
@@ -161,7 +162,8 @@ export class AuthController {
   async resetPassword(
     @Body() dto: ResetPasswordDto,
     @Req() req: Request,     // Inject Request เพื่ออ่าน Cookie
-    @Res({ passthrough: true }) res: Response // Inject Response เพื่อลบ Cookie
+    @Res({ passthrough: true }) res: Response, // Inject Response เพื่อลบ Cookie
+    @Ip() ip: string,
   ) {
 
     const token = req.cookies['resetToken'];
@@ -170,7 +172,7 @@ export class AuthController {
       throw new BadRequestException('Reset token is missing in cookies.');
     }
 
-    const result = await this.authService.resetPassword(dto, token);
+    const result = await this.authService.resetPassword(dto, token, ip);
 
     // ลบ Cookie ทิ้งเมื่อเปลี่ยนรหัสเสร็จ
     res.clearCookie('resetToken');

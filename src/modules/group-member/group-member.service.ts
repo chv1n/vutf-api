@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { CreateGroupMemberDto } from './dto/create-group-member.dto';
 import { AddMemberDto } from './dto/add-member.dto';
@@ -19,16 +20,19 @@ import { GroupMemberRole } from './enum/group-member-role.enum';
 import { ThesisGroup, ThesisGroupStatus } from '../thesis-group/entities/thesis-group.entity';
 import { Not } from 'typeorm';
 import { ThesisStatus } from '../thesis/enums/course-type.enum';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationType } from '../notifications/entities/notification.entity';
 
 @Injectable()
 export class GroupMemberService {
-
+  private readonly logger = new Logger(GroupMemberService.name);
   constructor(
     @InjectRepository(GroupMember)
     private readonly groupMemberRepo: Repository<GroupMember>,
     @InjectRepository(ThesisGroup)
     private readonly thesisGroupRepo: Repository<ThesisGroup>,
     private readonly userService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) { }
 
 
@@ -167,6 +171,48 @@ export class GroupMemberService {
         await this.updateGroupStatus(targetMember.group_id);
       }
 
+      // =========================================================
+      // Notification
+      // =========================================================
+      try {
+        const ownerMember = await this.groupMemberRepo.findOne({
+          where: { group_id: targetMember.group_id, role: GroupMemberRole.OWNER },
+          relations: ['student', 'student.user', 'group', 'group.thesis']
+        });
+
+        if (ownerMember?.student?.user?.user_uuid) {
+          const ownerUserId = ownerMember.student.user.user_uuid;
+          const actingStudentName = `${user.student.first_name} ${user.student.last_name}`;
+          const thesisName = ownerMember.group?.thesis?.thesis_name_th || 'ของคุณ';
+
+          let notiTitle = '';
+          let notiMessage = '';
+
+          if (dto.invitation_status === InvitationStatus.APPROVED) {
+            notiTitle = 'มีผู้ตอบรับคำเชิญ';
+            notiMessage = `"${actingStudentName}" ได้ตอบรับเข้าร่วมกลุ่มโครงงาน "${thesisName}" ของคุณแล้ว`;
+          } else if (dto.invitation_status === InvitationStatus.REJECTED) {
+            notiTitle = 'ปฏิเสธคำเชิญ';
+            notiMessage = `"${actingStudentName}" ได้ปฏิเสธคำเชิญเข้าร่วมกลุ่มโครงงาน "${thesisName}"`;
+          }
+
+          if (notiTitle) {
+            await this.notificationsService.createAndSend(
+              ownerUserId,
+              NotificationType.GROUP_INVITE,
+              notiTitle,
+              notiMessage,
+              {
+                groupId: targetMember.group_id,
+                url: `/student/groups/${targetMember.group_id}`
+              }
+            );
+          }
+        }
+      } catch (error) {
+        this.logger.error(`Failed to send response notification: ${error.message}`);
+      }
+
       return targetMember;
     } catch (error) {
       throw new HttpException(
@@ -222,6 +268,7 @@ export class GroupMemberService {
               course_type: true,
               start_academic_year: true,
               start_term: true,
+              status: true,
             },
             members: {
               member_id: true,
@@ -287,7 +334,8 @@ export class GroupMemberService {
     await this.validateIsOwner(userId, groupId);
 
     const group = await this.thesisGroupRepo.findOne({
-      where: { group_id: groupId }
+      where: { group_id: groupId },
+      relations: ['thesis']
     });
 
     if (!group) {
@@ -323,6 +371,36 @@ export class GroupMemberService {
     const savedMember = await this.groupMemberRepo.save(member);
 
     await this.updateGroupStatus(groupId);
+
+    // =========================================================
+    // Notification
+    // =========================================================
+    try {
+      const memberInfo = await this.groupMemberRepo.findOne({
+        where: { member_id: savedMember.member_id },
+        relations: ['student', 'student.user']
+      });
+
+      if (memberInfo?.student?.user?.user_uuid) {
+        const targetUserId = memberInfo?.student?.user?.user_uuid;
+        const thesisName = group.thesis?.thesis_name_th || 'โครงงาน (ไม่ระบุชื่อ)';
+
+        await this.notificationsService.createAndSend(
+          targetUserId,
+          NotificationType.GROUP_INVITE,
+          '📩 คำเชิญเข้าร่วมกลุ่มใหม่',
+          `คุณได้รับคำเชิญให้เข้าร่วมกลุ่มโครงงาน "${thesisName}"`,
+          {
+            groupId: groupId,
+            url: '/student/group-management'
+          }
+        );
+      } else {
+        this.logger.warn(`แจ้งเตือนล้มเหลว: หา user_uuid ไม่เจอ สำหรับ student_uuid: ${dto.student_uuid}`);
+      }
+    } catch (error) {
+      this.logger.error(`Failed to send invite notification: ${error.message}`);
+    }
 
     return savedMember;
   }

@@ -84,8 +84,8 @@ export class AuthService {
         user.user_uuid,
         'LOGIN',
         'เข้าสู่ระบบสำเร็จ',
-        null, 
-        ip   
+        null,
+        ip
       );
     } catch (error) {
       console.error('Login Log Error:', error.message);
@@ -182,7 +182,7 @@ export class AuthService {
     return { registrationToken };
   }
 
-  async register(dto: RegisterDto, registrationToken: string) {
+  async register(dto: RegisterDto, registrationToken: string, ip: string) {
     let email: string;
     try {
       const payload = this.jwtService.verify(registrationToken, {
@@ -211,11 +211,23 @@ export class AuthService {
       sectionId: dto.sectionId,
     });
 
+    try {
+      await this.auditLogService.createLog(
+        user.user_uuid,
+        'REGISTER',
+        'ลงทะเบียนสมาชิกใหม่',
+        { email: email, role: 'student' },
+        ip
+      );
+    } catch (error) {
+      console.error('Audit Log Error:', error.message);
+    }
+
     return user;
   }
 
 
-  async requestForgotPasswordOtp(dto: ForgotPasswordDto): Promise<void> {
+  async requestForgotPasswordOtp(dto: ForgotPasswordDto, ip: string): Promise<void> {
     const { email } = dto;
     const user = await this.usersService.findByEmail(email);
     if (!user) {
@@ -227,6 +239,18 @@ export class AuthService {
 
     await this.redisService.set(`forgot-otp:${email}`, otp, ttl);
     await this.mailService.sendForgotPassword(email, otp);
+
+    try {
+      await this.auditLogService.createLog(
+        user.user_uuid,
+        'FORGOT_PASSWORD_REQUEST',
+        'ขอรหัส OTP สำหรับรีเซ็ตรหัสผ่าน',
+        { email },
+        ip
+      );
+    } catch (error) {
+      console.error('Audit Log Error:', error.message);
+    }
   }
 
   async verifyForgotPasswordOtp(dto: VerifyOtpDto) {
@@ -248,7 +272,7 @@ export class AuthService {
     return { resetToken };
   }
 
-  async resetPassword(dto: ResetPasswordDto, resetToken: string) {
+  async resetPassword(dto: ResetPasswordDto, resetToken: string, ip: string) {
     let email: string;
     try {
       const payload = this.jwtService.verify(resetToken, {
@@ -262,9 +286,24 @@ export class AuthService {
       throw new BadRequestException('Invalid or expired reset token.');
     }
 
+    const user = await this.usersService.findByEmail(email);
     const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
 
     await this.usersService.updatePassword(email, hashedPassword);
+
+    if (user) {
+      try {
+        await this.auditLogService.createLog(
+          user.user_uuid,
+          'RESET_PASSWORD',
+          'เปลี่ยนรหัสผ่านสำเร็จ',
+          null,
+          ip
+        );
+      } catch (error) {
+        console.error('Audit Log Error:', error.message);
+      }
+    }
 
     return { message: 'เปลี่ยนรหัสผ่านสำเร็จแล้ว' };
   }
