@@ -24,6 +24,7 @@ import { ExportFileModule } from './export-file/export-file.module';
 import { ThesisFilesModule } from './thesis-files/thesis-files.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 
 
@@ -57,5 +58,6 @@ export const AppModules = [
     ThesisFilesModule,
     AuditLogModule,
     NotificationsModule,
+    DashboardModule,
 ]
 
