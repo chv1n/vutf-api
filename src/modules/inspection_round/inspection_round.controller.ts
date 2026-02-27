@@ -9,8 +9,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+
 @Controller('inspections')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class InspectionRoundController {
   constructor(private readonly inspectionRoundService: InspectionRoundService) { }
 
@@ -21,7 +24,7 @@ export class InspectionRoundController {
   }
 
   @Post()
-  @Roles('admin')
+  @RequirePermissions('manage:inspections')
   async create(@Body() createInspectionRoundDto: CreateInspectionRoundDto) {
     return await this.inspectionRoundService.create(createInspectionRoundDto);
   }
@@ -56,7 +59,7 @@ export class InspectionRoundController {
   }
 
   @Patch(':id')
-  @Roles('admin')
+  @RequirePermissions('manage:inspections')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateInspectionRoundDto: UpdateInspectionRoundDto,
@@ -65,13 +68,13 @@ export class InspectionRoundController {
   }
 
   @Delete(':id')
-  @Roles('admin')
+  @RequirePermissions('manage:inspections')
   async remove(@Param('id', ParseIntPipe) id: number) {
     return await this.inspectionRoundService.remove(id);
   }
 
   @Patch(':id/status')
-  @Roles('admin')
+  @RequirePermissions('manage:inspections')
   async toggleStatus(@Param('id', ParseIntPipe) id: number) {
     return await this.inspectionRoundService.toggleStatus(id);
   }

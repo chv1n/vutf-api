@@ -14,27 +14,31 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+
 @Controller('doc-config')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class DocConfigController {
   constructor(private readonly docConfigService: DocConfigService) { }
 
   // GET /doc-config - Get the single config
   @Get()
+  @RequirePermissions('manage:thesis_format')
   get() {
     return this.docConfigService.get();
   }
 
   // PUT /doc-config - Set/replace the entire config
   @Put()
-  @Roles('admin')
+  @RequirePermissions('manage:thesis_format')
   set(@Body() configData: CreateDocConfigDto) {
     return this.docConfigService.set(configData);
   }
 
   // PATCH /doc-config - Partial update
   @Patch()
-  @Roles('admin')
+  @RequirePermissions('manage:thesis_format')
   update(@Body() updateData: UpdateDocConfigDto) {
     return this.docConfigService.update(updateData);
   }

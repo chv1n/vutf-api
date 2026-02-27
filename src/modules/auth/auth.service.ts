@@ -44,6 +44,7 @@ export class AuthService {
       firstName: user.student?.first_name || user.instructor?.first_name || '',
       lastName: user.student?.last_name || user.instructor?.last_name || '',
       code: user.student?.student_code || user.instructor?.instructor_code || '',
+      permissions: user.permissions || []
     };
   }
 
@@ -51,18 +52,76 @@ export class AuthService {
     const { email, password } = loginDto;
     const user = await this.usersService.findByEmail(email);
 
-    if (!user || !user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+    // -------------------------------------------------------------
+    // 1. เช็คว่า IP หรือ Email นี้โดนล็อคชั่วคราวอยู่หรือไม่ (Rate Limiting)
+    // -------------------------------------------------------------
+    const loginAttemptsKey = `login_attempts:${email}`;
+    const maxAttempts = 5; // จำนวนครั้งที่ยอมให้ผิดได้
+    const lockoutDuration = 15 * 60; // ล็อค 15 นาที (หน่วยเป็นวินาที)
+
+    const attemptsStr = await this.redisService.get(loginAttemptsKey);
+    const attempts = attemptsStr ? parseInt(attemptsStr, 10) : 0;
+
+    if (attempts >= maxAttempts) {
+      throw new UnauthorizedException('คุณพยายามเข้าสู่ระบบผิดพลาดหลายครั้งเกินไป กรุณารอ 15 นาทีแล้วลองใหม่');
+    }
+
+    // -------------------------------------------------------------
+    // 2. เช็คว่ามีอีเมลนี้ในระบบหรือไม่
+    // -------------------------------------------------------------
+    if (!user || !user.passwordHash) {
       throw new BadRequestException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
     }
 
+    // -------------------------------------------------------------
+    // 3. เช็คสถานะบัญชี (ต้องเช็คก่อนตรวจรหัสผ่าน)
+    // -------------------------------------------------------------
     if (!user.isActive) {
-      throw new UnauthorizedException('บัญชีผู้ใช้นี้ถูกระงับ');
+      // LOG: บันทึกว่ามีคนพยายามเข้าบัญชีที่ถูกระงับ
+      await this.auditLogService.createLog(user.user_uuid, 'LOGIN_FAILED', 'พยายามเข้าสู่ระบบด้วยบัญชีที่ถูกระงับ', null, ip).catch(() => { });
+      throw new UnauthorizedException('บัญชีผู้ใช้นี้ถูกระงับการใช้งาน');
     }
 
-    // 3. Prepare Payload
+    // -------------------------------------------------------------
+    // 4. ตรวจสอบรหัสผ่าน (พร้อมเก็บ Log ถ้าผิดพลาด)
+    // -------------------------------------------------------------
+    const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+
+    if (!isPasswordValid) {
+      const currentFails = attempts + 1;
+      const remainingAttempts = maxAttempts - currentFails;
+
+      // นับการเข้าสู่ระบบผิดพลาดใน Redis
+      await this.redisService.set(loginAttemptsKey, currentFails.toString(), lockoutDuration);
+
+      // LOG: บันทึกว่าใส่รหัสผ่านผิด
+      await this.auditLogService.createLog(
+        user.user_uuid,
+        'LOGIN_FAILED',
+        `รหัสผ่านไม่ถูกต้อง (ครั้งที่ ${currentFails}/${maxAttempts})`,
+        null,
+        ip
+      ).catch(() => { });
+
+      // --- UX & Security Response Logic ---
+      if (remainingAttempts === 0) {
+        throw new UnauthorizedException('คุณพยายามเข้าสู่ระบบผิดพลาดหลายครั้งเกินไป บัญชีถูกระงับชั่วคราว 15 นาที');
+      } else if (remainingAttempts <= 2) {
+        throw new BadRequestException(`อีเมลหรือรหัสผ่านไม่ถูกต้อง (คุณเหลือโอกาสอีก ${remainingAttempts} ครั้ง)`);
+      } else {
+        throw new BadRequestException('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      }
+    }
+
+    // -------------------------------------------------------------
+    // ล็อกอินสำเร็จ: ลบตัวนับความผิดพลาดทิ้ง และไปต่อ
+    // -------------------------------------------------------------
+    await this.redisService.del(loginAttemptsKey);
+
+    // Prepare Payload
     const payload = { userId: user.user_uuid, role: user.role };
 
-    // 4. Generate Tokens
+    // Generate Tokens
     const accessToken = this.jwtService.sign(payload, {
       expiresIn: '15m',
       secret: process.env.JWT_ACCESS_SECRET
@@ -79,6 +138,7 @@ export class AuthService {
       7 * 24 * 60 * 60, // 7 days
     );
 
+    // LOG: บันทึกว่าล็อกอินสำเร็จ
     try {
       await this.auditLogService.createLog(
         user.user_uuid,
@@ -234,8 +294,27 @@ export class AuthService {
       throw new NotFoundException('ไม่พบอีเมลนี้ในระบบ');
     }
 
+    // -------------------------------------------------------------
+    // Rate Limit ป้องกันการสแปมขอ OTP
+    // -------------------------------------------------------------
+    const otpRateLimitKey = `rate_limit:forgot_otp:${email}`;
+    const maxOtpRequests = 3; // อนุญาตให้กดขอ OTP ได้ 3 ครั้ง
+    const lockoutDuration = 15 * 60; // ถ้าขอเกิน ให้บล็อกการส่งอีเมล 15 นาที
+
+    // เช็คว่าขอไปกี่ครั้งแล้ว
+    const requestCountStr = await this.redisService.get(otpRateLimitKey);
+    const requestCount = requestCountStr ? parseInt(requestCountStr, 10) : 0;
+
+    if (requestCount >= maxOtpRequests) {
+      throw new BadRequestException('คุณขอรหัส OTP บ่อยเกินไป กรุณารอ 15 นาทีแล้วลองใหม่');
+    }
+
+    // บวกจำนวนครั้งเพิ่มเข้าไปใน Redis
+    await this.redisService.set(otpRateLimitKey, (requestCount + 1).toString(), lockoutDuration);
+    // -------------------------------------------------------------
+
     const otp = this.otpService.generate6Digits();
-    const ttl = 300; // 5 นาที
+    const ttl = 300; // ตัว OTP มีอายุ 5 นาที
 
     await this.redisService.set(`forgot-otp:${email}`, otp, ttl);
     await this.mailService.sendForgotPassword(email, otp);
@@ -244,7 +323,7 @@ export class AuthService {
       await this.auditLogService.createLog(
         user.user_uuid,
         'FORGOT_PASSWORD_REQUEST',
-        'ขอรหัส OTP สำหรับรีเซ็ตรหัสผ่าน',
+        `ขอรหัส OTP สำหรับรีเซ็ตรหัสผ่าน (ครั้งที่ ${requestCount + 1}/${maxOtpRequests})`,
         { email },
         ip
       );
@@ -290,6 +369,9 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
 
     await this.usersService.updatePassword(email, hashedPassword);
+
+    const loginAttemptsKey = `login_attempts:${email}`;
+    await this.redisService.del(loginAttemptsKey);
 
     if (user) {
       try {

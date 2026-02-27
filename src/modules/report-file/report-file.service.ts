@@ -75,13 +75,13 @@ export class ReportFileService {
       search, submissionId, round,
       term, academicYear, courseType,
       verificationStatus, reviewStatus,
-      page = 1, limit = 10
+      page = 1, limit = 10,
+      inspectionId
     } = filterDto;
 
     const skip = (page - 1) * limit;
 
-    // 1. ดึง targetRound มาเพื่อใช้เป็นค่า Default กรณีหน้าแรก หรือใช้ช่วยกรอง Course Type
-    const targetRound = await this.inspectionRoundService.resolveTargetRound(filterDto);
+    // const targetRound = await this.inspectionRoundService.resolveTargetRound(filterDto);
 
     const query = this.reportFileRepository.createQueryBuilder('report');
 
@@ -97,30 +97,23 @@ export class ReportFileService {
       .leftJoinAndSelect('group.members', 'members')
       .leftJoinAndSelect('members.student', 'student');
 
-    /**
-     * 2. LOGIC การกรองรอบ (แก้ไขจุดนี้)
-     * - หากมีการระบุ search, submissionId หรือเลือกเลขรอบ/ปี/เทอม มา "ไม่ต้อง" กรองด้วย targetRound.inspectionId
-     * - จะใช้ targetRound.inspectionId เฉพาะกรณีที่โหลดหน้าแรกมาแบบไม่มี Filter ใดๆ เท่านั้น (เพื่อโชว์รอบปัจจุบัน)
-     */
-    const hasUserFilter = !!(search || submissionId || round || term || academicYear);
+    // กรองตาม inspectionId เฉพาะเมื่อมีการส่งค่ามาเท่านั้น (หน้า Track Thesis จะเข้าเงื่อนไขนี้)
+    if (inspectionId) {
+      query.andWhere('submission.inspection_id = :inspectionId', { inspectionId });
+    }
 
-    // if (!hasUserFilter && targetRound) {
-    //   query.andWhere('submission.inspection_id = :roundId', { roundId: targetRound.inspectionId });
-    // }
-
-    // 3. กรองประเภทวิชา (Course Type) 
-    // ลำดับความสำคัญ: สิ่งที่ User เลือก > สิ่งที่กำหนดในรอบนั้นๆ
+    // กรองประเภทวิชา
     if (courseType && courseType !== 'ALL') {
       query.andWhere('thesis.course_type = :cType', { cType: courseType });
     }
 
-    // 4. กรองตามเงื่อนไขที่ User เลือกมาจริงๆ
+    // กรองตามเงื่อนไขที่ User เลือกมาจริงๆ (หน้า Thesis Reports จะเข้าเงื่อนไขพวกนี้เมื่อเปลี่ยน Dropdown)
     if (submissionId) query.andWhere('report.submission_id = :submissionId', { submissionId });
     if (round) query.andWhere('inspectionRound.round_number = :round', { round: Number(round) });
     if (term) query.andWhere('inspectionRound.term = :term', { term });
     if (academicYear) query.andWhere('inspectionRound.academic_year = :year', { year: academicYear });
 
-    // 5. กรองสถานะ
+    // กรองสถานะ
     if (verificationStatus) {
       query.andWhere('report.verification_status = :vStatus', { vStatus: verificationStatus });
     }
@@ -128,7 +121,7 @@ export class ReportFileService {
       query.andWhere('report.review_status = :rStatus', { rStatus: reviewStatus });
     }
 
-    // 6. Search Logic
+    // Search Logic
     if (search) {
       query.andWhere(new Brackets((qb) => {
         qb.where('thesis.thesis_name_th LIKE :search', { search: `%${search}%` })
@@ -140,7 +133,7 @@ export class ReportFileService {
       }));
     }
 
-    // 7. เรียงลำดับตามความล่าสุด และ Pagination
+    // เรียงลำดับตามความล่าสุด และ Pagination
     query.orderBy('report.reported_at', 'DESC')
       .skip(skip)
       .take(limit);
@@ -326,7 +319,7 @@ export class ReportFileService {
       });
     }
     // =========================================================
-    
+
     // Logic อัปเดต Thesis และ ThesisDocument
     if (reportFile.submission && reportFile.submission.thesis) {
       const thesis = reportFile.submission.thesis;

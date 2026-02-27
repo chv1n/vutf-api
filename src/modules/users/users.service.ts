@@ -7,12 +7,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Brackets } from 'typeorm';
+import { Repository, DataSource, Brackets, In } from 'typeorm';
 import { UserAccount } from './entities/user-account.entity';
 import { Student } from './entities/student.entity';
 import { Instructor } from './entities/instructor.entity';
 import { GetUsersFilterDto, UserRoleFilter } from './dto/get-users-filter.dto';
 import { AdminUpdateUserDto } from './dto/update-user.dto';
+import { Permission } from '../permissions/entities/permission.entity';
+import { RedisService } from '../../shared/services/redis.service';
+import { AuditLogService } from '../audit-log/audit-log.service';
 
 @Injectable()
 export class UsersService {
@@ -22,7 +25,11 @@ export class UsersService {
 
     @InjectRepository(Instructor)
     private instructorRepository: Repository<Instructor>,
+    @InjectRepository(Permission)
+    private permissionRepository: Repository<Permission>,
     private dataSource: DataSource,
+    private redisService: RedisService,
+    private readonly auditLogService: AuditLogService,
 
   ) { }
 
@@ -34,7 +41,7 @@ export class UsersService {
   async findById(userId: string): Promise<UserAccount | null> {
     return this.usersRepository.findOne({
       where: { user_uuid: userId },
-      relations: ['student', 'instructor'],
+      relations: ['student', 'instructor', 'permissions'],
     });
   }
 
@@ -49,6 +56,7 @@ export class UsersService {
     query.leftJoinAndSelect('user.student', 'student');
     query.leftJoinAndSelect('student.section', 'section');
     query.leftJoinAndSelect('user.instructor', 'instructor');
+    query.leftJoinAndSelect('user.permissions', 'permissions');
 
     if (role && role !== UserRoleFilter.ALL) {
       query.andWhere('user.role = :role', { role });
@@ -94,10 +102,36 @@ export class UsersService {
 
     const [users, total] = await query.getManyAndCount();
 
-    const sanitizedUsers = users.map((user) => {
-      const { passwordHash, ...rest } = user;
-      return rest;
-    });
+    // กำหนดจำนวนครั้งสูงสุดที่อนุญาตให้ล็อกอินผิดพลาด
+    const MAX_LOGIN_ATTEMPTS = 5;
+
+    // เช็คสถานะ Locked จาก Redis สำหรับผู้ใช้แต่ละคน
+    const sanitizedUsers = await Promise.all(
+      users.map(async (user) => {
+        const { passwordHash, ...rest } = user;
+
+        let isLocked = false;
+        if (user.email) {
+          try {
+            const loginAttemptsKey = `login_attempts:${user.email}`;
+            const attemptsStr = await this.redisService.get(loginAttemptsKey);
+            const attempts = attemptsStr ? parseInt(attemptsStr, 10) : 0;
+
+            // ถ้าจำนวนครั้งที่พยายามล็อกอินมากกว่าหรือเท่ากับค่าสูงสุด ถือว่าถูกล็อค
+            if (attempts >= MAX_LOGIN_ATTEMPTS) {
+              isLocked = true;
+            }
+          } catch (error) {
+            console.error(`Failed to check lock status for ${user.email}:`, error);
+          }
+        }
+
+        return {
+          ...rest,
+          isLocked,
+        };
+      })
+    );
 
     return {
       data: sanitizedUsers,
@@ -114,7 +148,7 @@ export class UsersService {
   async findOneUser(id: string) {
     const user = await this.usersRepository.findOne({
       where: { user_uuid: id },
-      relations: ['student', 'student.section', 'instructor'],
+      relations: ['student', 'student.section', 'instructor', 'permissions'],
     });
 
     if (!user) {
@@ -201,6 +235,47 @@ export class UsersService {
     await this.usersRepository.save(user);
 
     return { message: 'User deactivated successfully (Soft Delete)' };
+  }
+
+  async assignPermissions(userId: string, permissionIds: number[]) {
+    const user = await this.usersRepository.findOne({
+      where: { user_uuid: userId },
+      relations: ['permissions'], // ดึงสิทธิ์เดิมมาด้วย
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID "${userId}" not found`);
+    }
+
+    // ค้นหาสิทธิ์จากตาราง permissions ตาม ID ที่รับมา
+    const permissionsToAssign = await this.permissionRepository.find({
+      where: { permissions_id: In(permissionIds) },
+    });
+
+    // เขียนทับด้วยสิทธิ์ใหม่ทั้งหมด (TypeORM จะจัดการเพิ่ม/ลบ ในตาราง user_permissions ให้อัตโนมัติ)
+    user.permissions = permissionsToAssign;
+    await this.usersRepository.save(user);
+
+    return {
+      message: 'อัปเดตสิทธิ์สำเร็จ',
+      permissions: user.permissions
+    };
+  }
+
+  async unlockUserAccount(userId: string) {
+    const user = await this.usersRepository.findOne({ where: { user_uuid: userId } });
+
+    if (!user) {
+      throw new NotFoundException('ไม่พบผู้ใช้งานในระบบ');
+    }
+
+    // ลบตัวนับจำนวนครั้งที่ล็อกอินผิดพลาดใน Redis ทิ้ง
+    const loginAttemptsKey = `login_attempts:${user.email}`;
+    await this.redisService.del(loginAttemptsKey);
+
+    await this.auditLogService.createLog(user.user_uuid, 'MANUAL_UNLOCK', 'แอดมินปลดล็อคการระงับ 15 นาที', null, 'ADMIN');
+
+    return { message: 'ปลดล็อคบัญชีสำเร็จ ผู้ใช้สามารถเข้าสู่ระบบได้ทันที' };
   }
 
 }

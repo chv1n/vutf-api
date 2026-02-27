@@ -5,11 +5,14 @@ import {
   CreateDateColumn,
   OneToOne,
   OneToMany,
+  ManyToMany,
+  JoinTable,
 } from 'typeorm';
 import { Student } from './student.entity';
 import { Instructor } from './instructor.entity';
 import { ThesisGroup } from '../../thesis-group/entities/thesis-group.entity';
 import { Submission } from '../../submissions/entities/submission.entity';
+import { Permission } from '../../permissions/entities/permission.entity';
 
 @Entity({ name: 'user_account' })
 export class UserAccount {
@@ -45,4 +48,12 @@ export class UserAccount {
 
   @OneToMany(() => Submission, (submission) => submission.reviewer)
   reviewedSubmissions: Submission[];
+
+  @ManyToMany(() => Permission)
+  @JoinTable({
+    name: 'user_permissions',
+    joinColumn: { name: 'user_id', referencedColumnName: 'user_uuid' },
+    inverseJoinColumn: { name: 'permissions_id', referencedColumnName: 'permissions_id' }
+  })
+  permissions: Permission[];
 }
