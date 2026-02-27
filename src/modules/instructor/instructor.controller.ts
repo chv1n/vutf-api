@@ -22,8 +22,11 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { UpdateInstructorProfileDto } from './dto/update-instructor-profile.dto';
 
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+
 @Controller('instructors')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class InstructorController {
   constructor(
     private readonly instructorService: InstructorService,
@@ -37,7 +40,7 @@ export class InstructorController {
     return this.instructorService.findAll(query);
   }
 
-  @Roles('admin')
+  @RequirePermissions('manage:users')
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createInstructor(@Body() dto: CreateInstructorByAdminDto) {

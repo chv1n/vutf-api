@@ -12,13 +12,16 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+
 @Controller('class-sections')
 export class ClassSectionsController {
   constructor(private readonly service: ClassSectionsService) { }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions('manage:users')
   async create(@Body() dto: CreateClassSectionDto) {
     const data = await this.service.create(dto);
     return { success: true, data };
@@ -42,8 +45,8 @@ export class ClassSectionsController {
   }
 
   @Put(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions('manage:users')
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateClassSectionDto,
@@ -53,8 +56,8 @@ export class ClassSectionsController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('admin')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
+  @RequirePermissions('manage:users')
   async remove(@Param('id', ParseIntPipe) id: number) {
     const data = await this.service.remove(id);
     return { success: true, data };

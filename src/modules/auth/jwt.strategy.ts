@@ -1,12 +1,15 @@
 // src/modules/auth/jwt.strategy.ts
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PassportStrategy } from '@nestjs/passport';
-import { Injectable } from '@nestjs/common';
-import { Request } from 'express'; 
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Request } from 'express';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(
+    private readonly usersService: UsersService
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request: Request) => {
@@ -23,6 +26,16 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    return { userId: payload.userId, role: payload.role };
+    const user = await this.usersService.findById(payload.userId);
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedException('User not found or inactive');
+    }
+
+    return {
+      userId: payload.userId,
+      role: payload.role,
+      permissions: user.permissions || []
+    };
   }
 }

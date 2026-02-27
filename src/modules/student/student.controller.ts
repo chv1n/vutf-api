@@ -22,6 +22,9 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
+
 @Controller('students')
 export class StudentController {
   constructor(private readonly studentService: StudentService) { }
@@ -33,8 +36,8 @@ export class StudentController {
     return this.studentService.findAll(query);
   }
 
-  @Roles('admin')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @RequirePermissions('manage:users')
+  @UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
   @Post('invite')
   @HttpCode(HttpStatus.OK)
   async inviteStudents(@Body() dto: InviteStudentsDto) {

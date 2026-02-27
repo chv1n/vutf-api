@@ -19,9 +19,11 @@ import { AdminUpdateUserDto } from './dto/update-user.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermissions } from '../auth/decorators/permissions.decorator';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 
 @Controller('users')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, PermissionsGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
@@ -31,21 +33,21 @@ export class UsersController {
     return req.user;
   }
 
-  @Roles('admin')
+  @RequirePermissions('manage:users')
   @Get()
   @HttpCode(HttpStatus.OK)
   async getUsers(@Query() filterDto: GetUsersFilterDto) {
     return this.usersService.findAllUsers(filterDto);
   }
 
-  @Roles('admin')
+  @RequirePermissions('manage:users')
   @Get(':id')
   @HttpCode(HttpStatus.OK)
   async getUserById(@Param('id') id: string) {
     return this.usersService.findOneUser(id);
   }
 
-  @Roles('admin')
+  @RequirePermissions('manage:users')
   @Patch(':id')
   @HttpCode(HttpStatus.OK)
   async updateUser(
@@ -55,10 +57,26 @@ export class UsersController {
     return this.usersService.updateUser(id, updateDto);
   }
 
-  @Roles('admin')
+  @RequirePermissions('manage:users')
   @Delete(':id')
   @HttpCode(HttpStatus.OK)
   async removeUser(@Param('id') id: string) {
     return this.usersService.removeUser(id);
+  }
+
+  @Roles('admin')
+  @Patch(':id/permissions')
+  @HttpCode(HttpStatus.OK)
+  async updatePermissions(
+    @Param('id') id: string,
+    @Body('permissionIds') permissionIds: number[]
+  ) {
+    return this.usersService.assignPermissions(id, permissionIds);
+  }
+
+  @Roles('admin')
+  @Patch(':id/unlock')
+  async unlockUser(@Param('id') id: string) {
+    return this.usersService.unlockUserAccount(id);
   }
 }
