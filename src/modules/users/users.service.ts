@@ -168,6 +168,12 @@ export class UsersService {
 
     if (!user) throw new NotFoundException('User not found');
 
+    if (dto.email && user.role === 'student') {
+      if (!dto.email.endsWith('@mail.rmutt.ac.th')) {
+        throw new BadRequestException('ต้องใช้อีเมล @mail.rmutt.ac.th เท่านั้น');
+      }
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();

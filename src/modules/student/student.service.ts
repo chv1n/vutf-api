@@ -225,8 +225,10 @@ export class StudentService {
           expiresIn: '7d'
         });
 
-        const frontendUrl = this.configService.get<string>('FRONTEND_URL');
-        const setupLink = `${frontendUrl}/setup-profile?token=${inviteToken}`;
+        const frontendUrls = this.configService.get<string>('FRONTEND_URL') || '';
+        const urlList = frontendUrls.split(',');
+        const primaryUrl = urlList[1];
+        const setupLink = `${primaryUrl}/setup-profile?token=${inviteToken}`;
 
         try {
           await this.mailService.sendInviteStudent(email, setupLink);

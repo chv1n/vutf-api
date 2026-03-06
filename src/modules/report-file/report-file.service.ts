@@ -20,6 +20,7 @@ import { CourseType, ThesisStatus } from '../thesis/enums/course-type.enum';
 import { ThesisDocument, DocumentType } from '../thesis/entities/thesis-document.entity';
 import { NotificationType } from '../notifications/entities/notification.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { MailService } from '../../shared/services/mail.service';
 
 
 @Injectable()
@@ -41,6 +42,7 @@ export class ReportFileService {
     @Inject(STORAGE_SERVICE)
     private readonly storageService: IStorageService,
     private readonly notificationsService: NotificationsService,
+    private readonly mailService: MailService,
   ) { }
 
   private async transformReport(item: ReportFile, attemptNumber?: number): Promise<ReportFileResponseDto> {
@@ -278,7 +280,9 @@ export class ReportFileService {
     // Notification 
     // =========================================================
     if (reportFile.submission && reportFile.submission.submitter) {
+      const student = reportFile.submission.submitter;
       const targetUserId = reportFile.submission.submitter.user_uuid;
+      const studentEmail = student.email;
 
       let notiTitle = 'อัปเดตสถานะการตรวจสอบ';
       let notiMessage = 'อาจารย์ได้ตรวจสอบงานของคุณแล้ว';
@@ -317,6 +321,17 @@ export class ReportFileService {
       ).catch(err => {
         this.logger.error(`Failed to send notification to user ${targetUserId}: ${err.message}`);
       });
+
+      if (studentEmail) {
+        this.mailService.sendReviewResult(
+          studentEmail,
+          reportFile.submission.thesis.thesis_name_th,
+          status,
+          comment
+        ).catch(err => {
+          this.logger.error(`Failed to send email to ${studentEmail}: ${err.message}`);
+        });
+      }
     }
     // =========================================================
 
