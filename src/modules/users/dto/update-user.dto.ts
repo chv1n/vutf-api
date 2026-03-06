@@ -32,7 +32,7 @@ export class AdminUpdateUserDto {
 
   @IsOptional()
   @IsEmail({}, { message: 'รูปแบบอีเมลไม่ถูกต้อง' })
-  @Matches(/@mail\.rmutt\.ac\.th$/, { message: 'ต้องใช้อีเมล @mail.rmutt.ac.th เท่านั้น' })
+  // @Matches(/@mail\.rmutt\.ac\.th$/, { message: 'ต้องใช้อีเมล @mail.rmutt.ac.th เท่านั้น' })
   email?: string;
 
   @IsOptional()

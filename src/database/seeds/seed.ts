@@ -1,125 +1,42 @@
 // seed.ts
 import { AppDataSource } from '../data-source';
 import { UserAccount } from '../../modules/users/entities/user-account.entity';
-import { Student } from '../../modules/users/entities/student.entity';
-import { Instructor } from '../../modules/users/entities/instructor.entity';
 import { DocConfig } from '../../modules/doc-config/entities/doc-config.entity';
+import { Permission } from '../../modules/permissions/entities/permission.entity';
 import * as bcrypt from 'bcrypt';
-
-// ตัวเลือกคำนำหน้าชื่อ (เพิ่ม/ลด ได้ตามต้องการ)
-const prefixes = ['นาย', 'นางสาว'];
-
-// ฟังก์ชันสุ่มเลือกคำนำหน้า
-const getRandomPrefix = () => prefixes[Math.floor(Math.random() * prefixes.length)];
 
 async function run() {
   const ds = await AppDataSource.initialize();
+  console.log('🚀 Connecting to Database for Production Setup...');
 
-  const userRepo = ds.getRepository(UserAccount);
-  const studentRepo = ds.getRepository(Student);
-  const instructorRepo = ds.getRepository(Instructor);
-
-  // ------------------------------------------
-  // STUDENTS 20 คน
-  // ------------------------------------------
-  for (let i = 1; i <= 20; i++) {
-    const email = `student${i}@example.com`;
-
-    let existedUser = await userRepo.findOne({ where: { email } });
-    if (!existedUser) {
-      existedUser = await userRepo.save({
-        role: 'student',
-        email: email,
-        passwordHash: await bcrypt.hash('password123', 10),
-      });
-    }
-
-    const existedStudent = await studentRepo.findOne({
-      where: { student_code: `66STU00${i}` },
-    });
-    if (!existedStudent) {
-      await studentRepo.save({
-        student_code: `66STU00${i}`,
-        prefix_name: getRandomPrefix(),
-        first_name: `Student${i}`,
-        last_name: `Lastname${i}`,
-        phone: `09000000${i}`,
-        user_uuid: existedUser.user_uuid,
-      });
-    }
+  // -----------------------------------------------------------
+  // 1. ล้างข้อมูลเก่าทิ้งทั้งหมด (เพื่อให้มั่นใจว่าไม่มีข้อมูล Dummy ค้าง)
+  // -----------------------------------------------------------
+  console.log('🧹 Cleaning all tables...');
+  const entities = ds.entityMetadatas;
+  for (const entity of entities) {
+    const repository = ds.getRepository(entity.name);
+    await repository.query(`TRUNCATE TABLE "${entity.tableName}" RESTART IDENTITY CASCADE;`);
   }
+  console.log('✨ Database is now clean.');
 
-  // ------------------------------------------
-  // INSTRUCTORS 1–2 (มี account)
-  // ------------------------------------------
-  for (let i = 1; i <= 2; i++) {
-    const email = `instructor${i}@example.com`;
+  // -----------------------------------------------------------
+  // 2. SEED PERMISSIONS (โครงสร้างสิทธิ์ที่ระบบต้องใช้)
+  // -----------------------------------------------------------
+  const permissionRepo = ds.getRepository(Permission);
+  const permissionsToSeed = [
+    { action: 'manage', resource: 'users' },
+    { action: 'manage', resource: 'thesis_format' },
+    { action: 'approve', resource: 'thesis_topic' },
+    { action: 'manage', resource: 'inspections' },
+  ];
+  await permissionRepo.save(permissionsToSeed);
+  console.log('✅ Permissions created.');
 
-    let existedUser = await userRepo.findOne({ where: { email } });
-    if (!existedUser) {
-      existedUser = await userRepo.save({
-        role: 'instructor',
-        email: email,
-        passwordHash: await bcrypt.hash('password123', 10),
-      });
-    }
-
-    const existedInstructor = await instructorRepo.findOne({
-      where: { instructor_code: `TEACH00${i}` },
-    });
-    if (!existedInstructor) {
-      await instructorRepo.save({
-        instructor_code: `TEACH00${i}`,
-        first_name: `Instructor${i}`,
-        last_name: `Lastname${i}`,
-        user_uuid: existedUser.user_uuid,
-      });
-    }
-  }
-
-  // ------------------------------------------
-  // INSTRUCTORS 3–5 (ไม่มี user account)
-  // ------------------------------------------
-  for (let i = 3; i <= 5; i++) {
-    const existedInstructor = await instructorRepo.findOne({
-      where: { instructor_code: `TEACH00${i}` },
-    });
-    if (existedInstructor) continue;
-
-    await instructorRepo.save({
-      instructor_code: `TEACH00${i}`,
-      first_name: `Instructor${i}`,
-      last_name: `Lastname${i}`,
-      user_uuid: null,
-    });
-  }
-
-  // ------------------------------------------
-  // ADMINS 2 คน 
-  // ------------------------------------------
-  for (let i = 1; i <= 2; i++) {
-    const email = `admin${i}@example.com`;
-
-    // เช็คว่ามี user นี้อยู่แล้วหรือยัง เพื่อป้องกันการสร้างซ้ำ
-    let existedUser = await userRepo.findOne({ where: { email } });
-
-    if (!existedUser) {
-      await userRepo.save({
-        role: 'admin',
-        email: email,
-        passwordHash: await bcrypt.hash('password123', 10),
-        // is_active: true, // (ถ้าใน entity ตั้ง default true ไว้แล้ว ไม่ต้องใส่ก็ได้)
-      });
-      console.log(`Created Admin: ${email}`);
-    }
-  }
-
-  // ------------------------------------------
-  // DOC CONFIG (single config)
-  // ------------------------------------------
+  // -----------------------------------------------------------
+  // 3. SEED DOC CONFIG (การตั้งค่าเริ่มต้นของระบบ)
+  // -----------------------------------------------------------
   const docConfigRepo = ds.getRepository(DocConfig);
-  let existingConfig = await docConfigRepo.findOne({ where: {} });
-
   const configData = {
     margin_mm: { top: 38.1, bottom: 25.4, left: 38.1, right: 25.4 },
     font: { name: 'sarabun', size: 16.0, tolerance: 1 },
@@ -147,20 +64,34 @@ async function run() {
       "bar", "atm", "dB", "rpm"
     ]
   };
+  await docConfigRepo.save({ config: configData });
+  console.log('✅ DocConfig initialized.');
 
-  if (!existingConfig) {
-    // ถ้ายังไม่มี ให้สร้างใหม่
-    await docConfigRepo.save({ config: configData });
-    console.log('✅ Created DocConfig');
-  } else {
-    // ถ้ามีแล้ว ให้อัปเดตค่าใหม่ทับลงไป
-    existingConfig.config = configData;
-    await docConfigRepo.save(existingConfig);
-    console.log('🔄 Updated Existing DocConfig');
-  }
+  // -----------------------------------------------------------
+  // 4. SEED SUPER ADMIN (บัญชีหลักบัญชีเดียว)
+  // -----------------------------------------------------------
+  const userRepo = ds.getRepository(UserAccount);
+  
+  const adminEmail = 'admin@yourdomain.com'; 
+  const adminPassword = 'Password123';
 
-  console.log('✅ Seed Completed');
+  await userRepo.save({
+    role: 'admin',
+    email: adminEmail,
+    passwordHash: await bcrypt.hash(adminPassword, 12),
+    is_active: true,
+  });
+  
+  console.log('-------------------------------------------');
+  console.log(`👤 Super Admin Created: ${adminEmail}`);
+  console.log('⚠️  Please change this password after first login.');
+  console.log('-------------------------------------------');
+
+  console.log('🏁 Production Seed Completed.');
   await ds.destroy();
 }
 
-run();
+run().catch(error => {
+  console.error('❌ Setup failed:', error);
+  process.exit(1);
+});

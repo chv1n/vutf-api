@@ -14,19 +14,21 @@ export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
   private setAuthCookies(res: Response, accessToken: string, refreshToken: string) {
+    const isProd = process.env.NODE_ENV === 'production' || true; // บังคับ true ไว้ก่อนเพื่อเทสผ่าน Tunnel
+
     res.cookie('accessToken', accessToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 15 * 60 * 1000, // 15 นาที (ตาม Access Token)
+      secure: true,       // ต้องเป็น true เท่านั้นเมื่อใช้ SameSite: 'none'
+      sameSite: 'none',   // เปลี่ยนจาก 'lax' เป็น 'none' เพื่อให้ส่งข้ามโดเมนได้
+      maxAge: 15 * 60 * 1000,
     });
 
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
+      secure: true,       // ต้องเป็น true
+      sameSite: 'none',   // ปลี่ยนเป็น 'none'
       path: '/api/v1/auth/refresh',
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 วัน
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
   }
 
@@ -85,9 +87,18 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(@Res({ passthrough: true }) res: Response) {
-    // ล้าง Cookie
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken', { path: '/api/v1/auth/refresh' });
+    const cookieOptions = {
+      httpOnly: true,
+      secure: true,     
+      sameSite: 'none' as const,
+    };
+
+    res.clearCookie('accessToken', cookieOptions);
+    res.clearCookie('refreshToken', {
+      ...cookieOptions,
+      path: '/api/v1/auth/refresh'
+    });
+
     return { message: 'Logout successful' };
   }
 
@@ -108,8 +119,8 @@ export class AuthController {
 
     res.cookie('registrationToken', result.registrationToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: 10 * 60 * 1000,
     });
 
@@ -135,7 +146,7 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  async forgotPassword(@Body() dto: ForgotPasswordDto,@Ip() ip: string,) {
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Ip() ip: string,) {
     return this.authService.requestForgotPasswordOtp(dto, ip);
   }
 
@@ -149,8 +160,8 @@ export class AuthController {
 
     res.cookie('resetToken', result.resetToken, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none',
       maxAge: 10 * 60 * 1000,
     });
 

@@ -6,16 +6,24 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
   process.env.TZ = 'UTC';
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  
+  // บอกให้ Express เชื่อถือ Header ที่ส่งมาจาก Proxy
+  app.getHttpAdapter().getInstance().set('trust proxy', true);
+  
   const configService = app.get(ConfigService);
   const frontendUrl = configService.get<string>('FRONTEND_URL');
+  const allowedOrigins = frontendUrl 
+    ? frontendUrl.split(',') 
+    : ['http://localhost:5173'];
   app.useWebSocketAdapter(new IoAdapter(app));
   app.use(cookieParser());
   app.enableCors({
-    origin: frontendUrl || 'http://localhost:5173',
+    origin: allowedOrigins,
     credentials: true,
   });
   app.setGlobalPrefix('api/v1');

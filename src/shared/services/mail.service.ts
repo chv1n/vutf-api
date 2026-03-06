@@ -105,4 +105,34 @@ export class MailService {
   `,
     });
   }
+
+  async sendReviewResult(
+    email: string,
+    thesisTitle: string,
+    status: string,
+    comment?: string
+  ) {
+    const statusThai = {
+      'PASSED': 'ผ่านการตรวจสอบ',
+      'NEEDS_REVISION': 'ต้องแก้ไข',
+      'NOT_PASSED': 'ไม่ผ่านการตรวจสอบ'
+    };
+
+    const displayStatus = statusThai[status] || status;
+
+    await this.mailer.sendMail({
+      to: email,
+      subject: `แจ้งผลการตรวจสอบเอกสาร: ${thesisTitle}`,
+      html: `
+      <div style="font-family: sans-serif; padding: 20px; line-height: 1.6;">
+        <h2 style="color: #333;">แจ้งผลการตรวจสอบเอกสาร</h2>
+        <p>หัวข้อวิทยานิพนธ์: <strong>${thesisTitle}</strong></p>
+        <p>ผลการตรวจสอบ: <span style="font-weight: bold; color: #1e40af;">${displayStatus}</span></p>
+        ${comment ? `<p>ความคิดเห็นจากอาจารย์: <br> <i style="color: #666;">"${comment}"</i></p>` : ''}
+        <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+        <p style="font-size: 14px; color: #888;">กรุณาตรวจสอบรายละเอียดเพิ่มเติมในระบบ Thesis Review System</p>
+      </div>
+    `,
+    });
+  }
 }
