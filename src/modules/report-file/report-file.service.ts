@@ -450,6 +450,7 @@ export class ReportFileService {
       verification_status: verificationStatus,
 
       review_status: InstructorReviewStatus.PENDING,
+      started_at: result.start_time ? new Date(result.start_time) : null,
     });
 
     return this.reportFileRepository.save(reportFile);
@@ -458,7 +459,8 @@ export class ReportFileService {
   async markAsFailed(
     submissionId: number,
     errorMessage: string,
-    status: VerificationResultStatus = VerificationResultStatus.ERROR
+    status: VerificationResultStatus = VerificationResultStatus.ERROR,
+    startTime?: string
   ): Promise<ReportFile> {
     const lastAttempt = await this.reportFileRepository.count({
       where: { submission_id: submissionId }
@@ -474,6 +476,7 @@ export class ReportFileService {
       verification_status: status,
 
       review_status: InstructorReviewStatus.PENDING,
+      started_at: startTime ? new Date(startTime) : null,
     });
 
     return this.reportFileRepository.save(reportFile);
@@ -588,5 +591,80 @@ export class ReportFileService {
         senderName: report.submission.student ? `${report.submission.student.first_name}` : 'Unknown'
       };
     }));
+  }
+
+  // ==========================================
+  // UPDATE CSV (จากหน้า Thesis Validator)
+  // ==========================================
+  async updateReportCsv(reportFileId: number, csvContent: string): Promise<ReportFile> {
+    const reportFile = await this.reportFileRepository.findOne({
+      where: { report_file_id: reportFileId }
+    });
+
+    if (!reportFile) {
+      throw new NotFoundException(`ReportFile with ID ${reportFileId} not found`);
+    }
+
+    // 1. แปลง String เป็น Buffer พร้อมใส่ BOM (\ufeff) เพื่อให้ Excel อ่านภาษาไทยได้
+    const buffer = Buffer.from('\ufeff' + csvContent, 'utf-8');
+
+    // 2. สร้างไฟล์จำลอง (Mock) ให้ตรงกับ Interface ของ Express.Multer.File
+    const originalName = reportFile.file_name ? reportFile.file_name.replace('.pdf', '.csv') : 'report.csv';
+    const mockFile = {
+      originalname: originalName,
+      buffer: buffer,
+      size: buffer.length,
+      mimetype: 'text/csv',
+    } as Express.Multer.File;
+
+    try {
+      let uploadFolder = 'reports/csv'; // ตั้งค่าเริ่มต้นเผื่อไว้
+
+      if (reportFile.csv_url) {
+        let oldFileKey = reportFile.csv_url;
+
+        // แกะ URL เต็มให้เหลือแค่ Object Key
+        if (oldFileKey.startsWith('http')) {
+          try {
+            const urlObj = new URL(oldFileKey);
+            let rawPath = decodeURIComponent(urlObj.pathname);
+            if (rawPath.startsWith('/')) rawPath = rawPath.substring(1);
+
+            const markers = ['reports/', 'submissions/'];
+            for (const marker of markers) {
+              const index = rawPath.indexOf(marker);
+              if (index !== -1) {
+                oldFileKey = rawPath.substring(index);
+                break;
+              }
+            }
+          } catch (e) {
+            this.logger.warn(`Could not parse old CSV URL: ${oldFileKey}`);
+          }
+        }
+
+        // หาโฟลเดอร์ของไฟล์เดิม (ตัดชื่อไฟล์ทิ้ง เอาแค่ Path)
+        const lastSlashIndex = oldFileKey.lastIndexOf('/');
+        if (lastSlashIndex !== -1) {
+          uploadFolder = oldFileKey.substring(0, lastSlashIndex);
+        }
+
+        // สั่งลบไฟล์เดิมใน Storage
+        await this.storageService.deleteFile(oldFileKey).catch(err => {
+          this.logger.warn(`Could not delete old CSV file: ${err.message}`);
+        });
+      }
+
+      // 4. อัปโหลดไฟล์ใหม่เข้าไปที่ "โฟลเดอร์เดิม" 
+      const uploadResult = await this.storageService.uploadFile(mockFile, uploadFolder);
+
+      // 5. อัปเดต Path ใหม่ลง Database (เก็บเป็น Path ตามมาตรฐานของ uploadResult)
+      reportFile.csv_url = uploadResult.path;
+      return await this.reportFileRepository.save(reportFile);
+
+    } catch (error) {
+      this.logger.error(`Failed to update CSV for Report ID ${reportFileId}: ${error.message}`);
+      throw new Error('Failed to save CSV file to storage');
+    }
   }
 }

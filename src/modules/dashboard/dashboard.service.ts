@@ -106,8 +106,8 @@ export class DashboardService {
 
       // Avg Speed (ในรอบปี/เทอม นั้นๆ)
       baseReportQuery.clone()
-        .andWhere('submission.verifiedAt IS NOT NULL')
-        .select('AVG(EXTRACT(EPOCH FROM (submission.verifiedAt - report.reported_at)))', 'avgSeconds')
+        .andWhere('report.started_at IS NOT NULL')
+        .select('AVG(EXTRACT(EPOCH FROM (report.reported_at - report.started_at)))', 'avgSeconds')
         .getRawOne(),
 
       // Users
@@ -137,7 +137,7 @@ export class DashboardService {
     };
 
     const rawAvgSeconds = avgSpeedResult?.avgSeconds ? parseFloat(avgSpeedResult.avgSeconds) : 0;
-    const formattedAvgSpeed = `${Math.abs(rawAvgSeconds).toFixed(1)}s`;
+    const formattedAvgSpeed = `${rawAvgSeconds.toFixed(1)}s`;
 
     return {
       firstPassRate: {

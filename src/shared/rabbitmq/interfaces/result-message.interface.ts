@@ -12,4 +12,5 @@ export interface ResultMessage {
     result_file_size?: number;
     error_message: string | null;
     completed_at: string;
+    start_time: string;
 }

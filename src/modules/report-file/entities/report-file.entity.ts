@@ -44,6 +44,9 @@ export class ReportFile {
     })
     review_status: InstructorReviewStatus;
 
+    @Column({ type: 'timestamp', nullable: true })
+    started_at: Date | null;
+
     @CreateDateColumn()
     reported_at: Date;
 
