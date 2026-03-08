@@ -62,13 +62,16 @@ export class VerificationService {
         // 3. Get config from Redis (fast path) or DB
         const config = await this.docConfigService.get();
 
+        const startTime = new Date();
+
         // 4. Send job to RabbitMQ
         const jobId = await this.jobProducerService.sendVerificationJob(
             submissionId,
             fileUrl,
             submission.fileName,
             config,
-            attemptNumber
+            attemptNumber,
+            startTime
         );
 
         // 5. Update status to IN_PROGRESS

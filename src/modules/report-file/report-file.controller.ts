@@ -5,6 +5,7 @@ import {
   Post,
   Body,
   Patch,
+  Put,
   Param,
   UseGuards,
   ParseIntPipe,
@@ -52,6 +53,15 @@ export class ReportFileController {
     @Body() updateReportFileDto: UpdateReportFileDto,
   ) {
     return this.reportFileService.update(id, updateReportFileDto);
+  }
+
+  @Put(':id/csv')
+  @Roles('admin', 'instructor')
+  async updateCsv(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('csvContent') csvContent: string,
+  ) {
+    return this.reportFileService.updateReportCsv(id, csvContent);
   }
 
   /**

@@ -10,4 +10,5 @@ export interface JobMessage {
     config: DocumentConfigData;
     attempt: number;
     created_at: string;
+    start_time: string;
 }

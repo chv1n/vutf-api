@@ -64,7 +64,8 @@ export class ResultConsumerService {
                 await this.reportFileService.markAsFailed(
                     message.submission_id,
                     errorMessage,
-                    VerificationResultStatus.ERROR
+                    VerificationResultStatus.ERROR,
+                    message.start_time
                 );
 
                 // อัปเดต Submission Status เป็น FAILED

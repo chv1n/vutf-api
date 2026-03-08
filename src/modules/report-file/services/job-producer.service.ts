@@ -24,6 +24,7 @@ export class JobProducerService {
         fileName: string,
         config: DocumentConfigData,
         attempt: number,
+        startTime: Date
     ): Promise<string> {
         const jobId = uuidv4();
 
@@ -35,6 +36,7 @@ export class JobProducerService {
             config,
             attempt,
             created_at: new Date().toISOString(),
+            start_time: startTime.toISOString(),
         };
 
         await this.amqpConnection.publish(
