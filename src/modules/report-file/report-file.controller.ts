@@ -22,6 +22,7 @@ import { VerifyBatchDto } from './dto/verify-batch.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { VerificationResultStatus } from './enum/report-status.enum';
 @Controller('report-file')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ReportFileController {
@@ -111,6 +112,15 @@ export class ReportFileController {
   @Get('submission/:submissionId/student')
   async findForStudent(@Param('submissionId', ParseIntPipe) submissionId: number) {
     return this.reportFileService.findStudentReports(submissionId);
+  }
+
+  @Patch(':id/verification-status')
+  @Roles('admin', 'instructor') // กำหนดสิทธิ์ตามที่ต้องการ
+  async updateVerificationStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: VerificationResultStatus,
+  ) {
+    return this.reportFileService.updateVerificationStatus(id, status);
   }
 
 }

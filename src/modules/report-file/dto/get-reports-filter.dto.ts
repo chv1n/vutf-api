@@ -53,4 +53,8 @@ export class GetReportsFilterDto {
   @IsOptional()
   @IsEnum(InstructorReviewStatus)
   reviewStatus?: InstructorReviewStatus;
+
+  @IsOptional()
+  @IsString()
+  sortOrder?: string;
 }

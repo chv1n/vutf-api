@@ -91,7 +91,7 @@ export class TrackThesisService {
   // PUBLIC METHOD 1: Get Unsubmitted
   // ======================================================================
   async getUnsubmittedGroups(filterDto: GetUnsubmittedFilterDto) {
-    const { page = 1, limit = 10, isExport = false } = filterDto;
+    const { page = 1, limit = 10, isExport = false, sortOrder = 'DESC' } = filterDto;
 
     // 1. Resolve Round
     const targetRound = await this.inspectionRoundService.resolveTargetRound(filterDto);
@@ -105,7 +105,8 @@ export class TrackThesisService {
 
     // 4. Filter Specific (Only "Unsubmitted")
     query.andWhere('submission.submission_id IS NULL');
-    query.orderBy('student.student_code', 'ASC');
+    const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    query.orderBy('student.student_code', order);
 
     // 5. Pagination
     if (!isExport) query.skip((page - 1) * limit).take(limit);
@@ -136,7 +137,7 @@ export class TrackThesisService {
   // PUBLIC METHOD 2: Get Submitted
   // ======================================================================
   async getSubmittedGroups(filterDto: GetUnsubmittedFilterDto) {
-    const { page = 1, limit = 10, isExport = false, status } = filterDto;
+    const { page = 1, limit = 10, isExport = false, status, sortOrder = 'DESC' } = filterDto;
 
     // 1. Resolve Round
     const targetRound = await this.inspectionRoundService.resolveTargetRound(filterDto);
@@ -151,7 +152,8 @@ export class TrackThesisService {
     if (status) {
       query.andWhere('submission.status = :status', { status });
     }
-    query.orderBy('submission.submittedAt', 'DESC');
+    const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    query.orderBy('submission.submittedAt', order as any);
 
     // 4. Pagination
     if (!isExport) query.skip((page - 1) * limit).take(limit);
