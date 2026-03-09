@@ -78,7 +78,8 @@ export class ReportFileService {
       term, academicYear, courseType,
       verificationStatus, reviewStatus,
       page = 1, limit = 10,
-      inspectionId
+      inspectionId,
+      sortOrder = 'DESC'
     } = filterDto;
 
     const skip = (page - 1) * limit;
@@ -136,7 +137,8 @@ export class ReportFileService {
     }
 
     // เรียงลำดับตามความล่าสุด และ Pagination
-    query.orderBy('report.reported_at', 'DESC')
+    const order = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    query.orderBy('report.reported_at', order)
       .skip(skip)
       .take(limit);
 
@@ -666,5 +668,31 @@ export class ReportFileService {
       this.logger.error(`Failed to update CSV for Report ID ${reportFileId}: ${error.message}`);
       throw new Error('Failed to save CSV file to storage');
     }
+  }
+
+  // ==========================================
+  // UPDATE VERIFICATION STATUS
+  // ==========================================
+  async updateVerificationStatus(
+    reportFileId: number,
+    status: VerificationResultStatus,
+  ): Promise<ReportFile> {
+    const reportFile = await this.reportFileRepository.findOne({
+      where: { report_file_id: reportFileId },
+    });
+
+    if (!reportFile) {
+      throw new NotFoundException(`ReportFile with ID ${reportFileId} not found`);
+    }
+
+    reportFile.verification_status = status;
+
+    // หากต้องการให้เซ็ต Review Status กลับไปเป็น PENDING เมื่อมีการเปลี่ยนสถานะ Auto ตรวจใหม่ สามารถเพิ่มโค้ดด้านล่างได้
+    // reportFile.review_status = InstructorReviewStatus.PENDING;
+
+    const updatedReport = await this.reportFileRepository.save(reportFile);
+    this.logger.log(`Updated Verification Status for Report ID ${reportFileId} to ${status}`);
+
+    return updatedReport;
   }
 }

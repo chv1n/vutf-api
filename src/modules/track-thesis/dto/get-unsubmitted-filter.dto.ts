@@ -31,7 +31,7 @@ export class GetUnsubmittedFilterDto {
 
     @IsOptional()
     @IsString()
-    advisorName?: string; 
+    advisorName?: string;
 
     @IsOptional()
     @IsEnum(CourseType)
@@ -70,5 +70,9 @@ export class GetUnsubmittedFilterDto {
     @IsBoolean()
     @Transform(({ value }) => value === 'true' || value === true)
     isExport?: boolean;
+
+    @IsOptional()
+    @IsString()
+    sortOrder?: string;
 
 }
