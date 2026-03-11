@@ -95,14 +95,14 @@ export class ThesisGroupService {
         members: {
           student_uuid: studentUuid,
           deleted_at: IsNull(),
-          invitation_status: Not(InvitationStatus.REJECTED),
+          invitation_status: InvitationStatus.APPROVED,
         },
         thesis: {
           delete_at: IsNull(),
           status: Not(ThesisStatus.FAILED),
         },
       },
-      relations: ['thesis'],
+      relations: ['thesis', 'members'],
     });
 
     if (existingActiveGroup) {

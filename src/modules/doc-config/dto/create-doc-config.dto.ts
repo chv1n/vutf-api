@@ -46,19 +46,43 @@ export class FontConfigDto {
 export class IndentRulesConfigDto {
     @IsNumber()
     @Min(0)
-    paragraph: number;
+    tolerance: number;
 
     @IsNumber()
     @Min(0)
-    sub_section_num: number;
+    main_heading_num: number;
 
     @IsNumber()
     @Min(0)
-    sub_section_text_1: number;
+    main_heading_text: number;
 
     @IsNumber()
     @Min(0)
-    sub_section_text_2: number;
+    sub_heading_num: number;
+
+    @IsNumber()
+    @Min(0)
+    sub_heading_text_1: number;
+
+    @IsNumber()
+    @Min(0)
+    sub_heading_text_2: number;
+
+    @IsNumber()
+    @Min(0)
+    sub_heading_text_3: number;
+
+    @IsNumber()
+    @Min(0)
+    list_item_num: number;
+
+    @IsNumber()
+    @Min(0)
+    list_item_text_1: number;
+
+    @IsNumber()
+    @Min(0)
+    list_item_text_2: number;
 
     @IsNumber()
     @Min(0)
@@ -70,27 +94,46 @@ export class IndentRulesConfigDto {
 
     @IsNumber()
     @Min(0)
-    tolerance: number;
+    para_indent: number;
+
+    @IsNumber()
+    @Min(0)
+    dash_indent: number;
+
+    @IsNumber()
+    @Min(0)
+    dash_text: number;
+
+    @IsNumber()
+    @Min(0)
+    para_min_detect: number;
+
+    @IsNumber()
+    @Min(0)
+    para_max_detect: number;
 }
 
 export class CheckListConfigDto {
     @IsBoolean()
-    check_font: boolean;
-
-    @IsBoolean()
     check_margin: boolean;
 
     @IsBoolean()
-    check_section_seq: boolean;
+    check_font: boolean;
 
     @IsBoolean()
     check_page_seq: boolean;
 
     @IsBoolean()
-    check_indentation: boolean;
+    check_section_seq: boolean;
+
+    @IsBoolean()
+    check_paper_size: boolean;
 
     @IsBoolean()
     check_spacing: boolean;
+
+    @IsBoolean()
+    check_indentation: boolean;
 }
 
 export class DocumentConfigDataDto {

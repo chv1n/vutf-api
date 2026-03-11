@@ -55,22 +55,52 @@ export class PartialIndentRulesConfigDto {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    paragraph?: number;
+    tolerance?: number;
 
     @IsOptional()
     @IsNumber()
     @Min(0)
-    sub_section_num?: number;
+    main_heading_num?: number;
 
     @IsOptional()
     @IsNumber()
     @Min(0)
-    sub_section_text_1?: number;
+    main_heading_text?: number;
 
     @IsOptional()
     @IsNumber()
     @Min(0)
-    sub_section_text_2?: number;
+    sub_heading_num?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    sub_heading_text_1?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    sub_heading_text_2?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    sub_heading_text_3?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    list_item_num?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    list_item_text_1?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    list_item_text_2?: number;
 
     @IsOptional()
     @IsNumber()
@@ -85,21 +115,37 @@ export class PartialIndentRulesConfigDto {
     @IsOptional()
     @IsNumber()
     @Min(0)
-    tolerance?: number;
+    para_indent?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    dash_indent?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    dash_text?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    para_min_detect?: number;
+
+    @IsOptional()
+    @IsNumber()
+    @Min(0)
+    para_max_detect?: number;
 }
 
 export class PartialCheckListConfigDto {
-    @IsOptional()
-    @IsBoolean()
-    check_font?: boolean;
-
     @IsOptional()
     @IsBoolean()
     check_margin?: boolean;
 
     @IsOptional()
     @IsBoolean()
-    check_section_seq?: boolean;
+    check_font?: boolean;
 
     @IsOptional()
     @IsBoolean()
@@ -107,11 +153,19 @@ export class PartialCheckListConfigDto {
 
     @IsOptional()
     @IsBoolean()
-    check_indentation?: boolean;
+    check_section_seq?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    check_paper_size?: boolean;
 
     @IsOptional()
     @IsBoolean()
     check_spacing?: boolean;
+
+    @IsOptional()
+    @IsBoolean()
+    check_indentation?: boolean;
 }
 
 export class UpdateDocConfigDto {
