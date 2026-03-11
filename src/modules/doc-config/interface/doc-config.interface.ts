@@ -14,27 +14,38 @@ export interface FontConfig {
 }
 
 export interface IndentRulesConfig {
-    paragraph: number;
-    sub_section_num: number;
-    sub_section_text_1: number;
-    sub_section_text_2: number;
+    tolerance: number;
+    main_heading_num: number;
+    main_heading_text: number;
+    sub_heading_num: number;
+    sub_heading_text_1: number;
+    sub_heading_text_2: number;
+    sub_heading_text_3: number;
+    list_item_num: number;
+    list_item_text_1: number;
+    list_item_text_2: number;
     bullet_point: number;
     bullet_text: number;
-    tolerance: number;
+    para_indent: number;
+    dash_indent: number;
+    dash_text: number;
+    para_min_detect: number;
+    para_max_detect: number;
 }
 
 export interface CheckListConfig {
-    check_font: boolean;
     check_margin: boolean;
-    check_section_seq: boolean;
+    check_font: boolean;
     check_page_seq: boolean;
-    check_indentation: boolean;
+    check_section_seq: boolean;
+    check_paper_size: boolean;
     check_spacing: boolean;
+    check_indentation: boolean;
 }
 
 export interface DocumentConfigData {
-    margin_mm: MarginConfig;
     font: FontConfig;
+    margin_mm: MarginConfig;
     indent_rules: IndentRulesConfig;
     check_list: CheckListConfig;
     ignored_units: string[];
