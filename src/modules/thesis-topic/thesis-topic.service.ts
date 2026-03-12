@@ -1,7 +1,7 @@
 // src/modules/thesis-topic/thesis-topic.service.ts
 import { BadRequestException, Injectable, NotFoundException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Brackets } from 'typeorm';
+import { Repository, Brackets, DataSource } from 'typeorm';
 import { Thesis } from '../thesis/entities/thesis.entity';
 import { ThesisStatus } from '../thesis/enums/course-type.enum';
 import { ThesisGroup, ThesisGroupStatus } from '../thesis-group/entities/thesis-group.entity';
@@ -9,6 +9,12 @@ import { AdminApproveGroupDto } from './dto/admin-approve-group.dto';
 import { GetGroupsFilterDto } from './dto/get-groups-filter.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '../notifications/entities/notification.entity';
+import { UpdateThesisDto } from '../thesis/dto/update-thesis.dto';
+import { AdminCreateGroupDto } from './dto/admin-create-group.dto';
+import { ThesisService } from '../thesis/thesis.service';
+import { GroupMemberService } from '../group-member/group-member.service';
+import { AdvisorAssignmentService } from '../advisor-assignment/advisor-assignment.service';
+import { InvitationStatus } from '../group-member/enum/invitation-status.enum';
 
 @Injectable()
 export class ThesisTopicService {
@@ -19,6 +25,10 @@ export class ThesisTopicService {
     @InjectRepository(ThesisGroup)
     private readonly thesisGroupRepo: Repository<ThesisGroup>,
     private readonly notificationsService: NotificationsService,
+    private readonly thesisService: ThesisService,
+    private readonly groupMemberService: GroupMemberService,
+    private readonly advisorService: AdvisorAssignmentService,
+    private readonly dataSource: DataSource,
   ) { }
 
   async removeThesis(thesisId: string): Promise<{ message: string }> {
@@ -251,5 +261,73 @@ export class ThesisTopicService {
     }
 
     return savedGroup;
+  }
+
+  async adminUpdateThesisInfo(groupId: string, dto: UpdateThesisDto): Promise<{ message: string }> {
+    const group = await this.thesisGroupRepo.findOne({
+      where: { group_id: groupId },
+      relations: ['thesis'],
+    });
+
+    if (!group || !group.thesis) {
+      throw new NotFoundException('ไม่พบข้อมูลกลุ่มหรือวิทยานิพนธ์');
+    }
+
+    Object.assign(group.thesis, dto);
+    await this.thesisRepo.save(group.thesis);
+
+    return { message: 'Admin updated thesis info successfully' };
+  }
+
+  async adminCreateGroup(dto: AdminCreateGroupDto, adminUserId: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const manager = queryRunner.manager;
+
+      // 1. สร้าง Thesis
+      const thesis = await this.thesisService.createThesis(manager, dto.thesis);
+
+      // 2. สร้าง ThesisGroup (created_by = admin)
+      const group = manager.create(ThesisGroup, {
+        created_by: { user_uuid: adminUserId },
+        thesis: thesis,
+        status: dto.auto_approve ? ThesisGroupStatus.APPROVED : ThesisGroupStatus.PENDING,
+        approved_at: dto.auto_approve ? new Date() : null,
+      });
+      const savedGroup = await manager.save(group);
+
+      // 3. เพิ่มสมาชิก (Auto-approve ทุกคน เพราะ admin เป็นคนเพิ่ม)
+      const membersWithAutoApprove = dto.group_member.map(m => ({
+        ...m,
+        invitation_status: InvitationStatus.APPROVED,
+        approved_at: new Date(),
+      }));
+
+      await this.groupMemberService.createGroupMember(
+        manager,
+        savedGroup.group_id,
+        membersWithAutoApprove,
+      );
+
+      // 4. เพิ่มอาจารย์ที่ปรึกษา
+      if (dto.advisor && dto.advisor.length > 0) {
+        await this.advisorService.createAdvisor(
+          manager,
+          savedGroup.group_id,
+          dto.advisor,
+        );
+      }
+
+      await queryRunner.commitTransaction();
+      return { message: 'Admin สร้างกลุ่มสำเร็จ', group_id: savedGroup.group_id };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

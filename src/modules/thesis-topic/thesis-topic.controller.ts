@@ -1,8 +1,10 @@
 // src/modules/thesis-topic/thesis-topic.controller.ts
-import { Controller, Get, Delete, Param, Patch, Body, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Patch, Body, UseGuards, Query, Req } from '@nestjs/common';
 import { ThesisTopicService } from './thesis-topic.service';
 import { AdminApproveGroupDto } from './dto/admin-approve-group.dto';
 import { GetGroupsFilterDto } from './dto/get-groups-filter.dto';
+import { UpdateThesisDto } from '../thesis/dto/update-thesis.dto';
+import { AdminCreateGroupDto } from './dto/admin-create-group.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -23,12 +25,27 @@ export class ThesisTopicController {
   }
 
   @RequirePermissions('approve:thesis_topic')
+  @Post('groups')
+  adminCreateGroup(@Req() req, @Body() dto: AdminCreateGroupDto) {
+    return this.thesisTopicService.adminCreateGroup(dto, req.user.userId);
+  }
+
+  @RequirePermissions('approve:thesis_topic')
   @Patch('groups/:id/status')
   adminUpdateStatus(
     @Param('id') groupId: string,
     @Body() dto: AdminApproveGroupDto,
   ) {
     return this.thesisTopicService.adminUpdateStatus(groupId, dto);
+  }
+
+  @RequirePermissions('approve:thesis_topic')
+  @Patch('groups/:id/thesis')
+  adminUpdateThesisInfo(
+    @Param('id') groupId: string,
+    @Body() dto: UpdateThesisDto,
+  ) {
+    return this.thesisTopicService.adminUpdateThesisInfo(groupId, dto);
   }
 
   @RequirePermissions('approve:thesis_topic')

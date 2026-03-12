@@ -38,6 +38,7 @@ async function bootstrap() {
     }),
   );
   const port = configService.get<number>('PORT') || 3000;
+  console.log("Nest running on port : ", port)
   await app.listen(port);
 }
 bootstrap();
