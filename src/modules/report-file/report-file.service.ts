@@ -454,7 +454,7 @@ export class ReportFileService {
       review_status: InstructorReviewStatus.PENDING,
       started_at: result.start_time ? new Date(result.start_time) : null,
     });
-
+    console.log("++++++++++++++ ไม่เข้าฟังค์ชั่นนี้นะ ++++++++++++")
     return this.reportFileRepository.save(reportFile);
   }
 
