@@ -15,15 +15,15 @@ export class MinioStorageService implements IStorageService {
 
     constructor(private readonly configService: ConfigService) {
         this.client = new Minio.Client({
-            endPoint: this.configService.get<string>('minio.endpoint') || 'localhost',
-            port: this.configService.get<number>('minio.port') || 9000,
-            useSSL: this.configService.get<boolean>('minio.useSSL') || false,
-            accessKey: this.configService.get<string>('minio.accessKey') || '',
-            secretKey: this.configService.get<string>('minio.secretKey') || '',
-            region: this.configService.get<string>('minio.region') || 'us-east-1',
+            endPoint: this.configService.get<string>('storage.endpoint') || 'localhost',
+            port: this.configService.get<number>('storage.port') || 9000,
+            useSSL: this.configService.get<boolean>('storage.useSSL') || false,
+            accessKey: this.configService.get<string>('storage.accessKey') || '',
+            secretKey: this.configService.get<string>('storage.secretKey') || '',
+            region: this.configService.get<string>('storage.region') || 'us-east-1',
         });
 
-        this.bucket = this.configService.get<string>('minio.bucket') || 'submissions';
+        this.bucket = this.configService.get<string>('storage.bucket') || 'submissions';
         this.ensureBucket();
     }
 

@@ -26,14 +26,14 @@ export default () => ({
     password: process.env.MAIL_PASSWORD,
     from: process.env.MAIL_FROM || '"No Reply" <noreply@example.com>',
   },
-  minio: {
-    endpoint: process.env.MINIO_ENDPOINT || 'localhost',
-    port: parseInt(process.env.MINIO_PORT ?? '9000', 10),
-    useSSL: process.env.MINIO_USE_SSL === 'true',
-    accessKey: process.env.MINIO_ACCESS_KEY || process.env.MINIO_ROOT_USER || '',
-    secretKey: process.env.MINIO_SECRET_KEY || process.env.MINIO_ROOT_PASSWORD || '',
-    bucket: process.env.MINIO_BUCKET || 'submissions',
-    region: process.env.MINIO_REGION || 'us-east-1',
+  storage: {
+    endpoint: process.env.STORAGE_ENDPOINT || 'localhost',
+    port: parseInt(process.env.STORAGE_PORT ?? '9000', 10),
+    useSSL: process.env.STORAGE_USE_SSL === 'true',
+    accessKey: process.env.STORAGE_ACCESS_KEY || process.env.STORAGE_ROOT_USER || '',
+    secretKey: process.env.STORAGE_SECRET_KEY || process.env.STORAGE_ROOT_PASSWORD || '',
+    bucket: process.env.STORAGE_BUCKET || 'submissions',
+    region: process.env.STORAGE_REGION || 'us-east-1',
   },
   upload: {
     maxFileSize: parseInt(process.env.UPLOAD_MAX_FILE_SIZE ?? '52428800', 10), // 50MB
